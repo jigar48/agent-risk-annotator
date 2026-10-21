@@ -1,6 +1,6 @@
 ---
-description: Annotate the risky hunks in the latest commit (or <base>...HEAD) so you know where to review first
-argument-hint: '[base-ref] [--head <ref>] [--coverage <path>]'
+description: Annotate the risky hunks in the latest commit, or in everything since a base ref, so you know where to review first
+argument-hint: '[base-ref] [--head ref] [--coverage path]'
 allowed-tools: Bash(risk-annotate:*), Bash(npx -y risk-annotate@latest:*), Bash(command -v risk-annotate), Read
 ---
 
@@ -11,8 +11,14 @@ Run the local, deterministic risk annotator on this repository and walk me throu
 Arguments: `$ARGUMENTS`
 
 - If the first argument does not start with `--`, it is a base ref: pass it as `--base <ref>` and keep the remaining arguments as they are. With no arguments, run with no flags (reviews `HEAD~1..HEAD`).
-- Use `risk-annotate` if `command -v risk-annotate` finds it; otherwise use `npx -y risk-annotate@latest`.
 - Always use the default Markdown format here.
+
+Run exactly two Bash commands, each one on its own — these are the only forms this command is pre-approved for:
+
+1. `command -v risk-annotate`
+2. If that printed a path: `risk-annotate <flags>`. Otherwise: `npx -y risk-annotate@latest <flags>`.
+
+Each must be a single simple command: no `cd` (the shell already starts in the project), no `&&`, `||`, `;`, `if`, pipes, redirects or `echo $?`. The Bash tool reports the exit code itself. Chaining commands makes them unmatched by the pre-approval and forces a permission prompt.
 
 Exit codes: `0` ran fine, `2` only happens with `--fail-on` and still prints the report, `1` is an error — show the stderr message and stop.
 
