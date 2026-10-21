@@ -10,10 +10,25 @@
 
 Coding agents hand you large diffs. `risk-annotate` reads your git repository and prints **one line per risky hunk** — sensitive paths, deleted tests, fix-prone files, uncovered code, new dependencies, lockfile drift, CI/infra changes, outsized diffs — so you review the dangerous parts first.
 
+![A 7-file agent diff in git order becomes a ranked review list: 3 HIGH, 3 MED and 1 LOW, each with its reason and evidence](https://raw.githubusercontent.com/jigar48/agent-risk-annotator/main/docs/images/how-it-helps.svg)
+
 - **Local-first.** Runs entirely on your machine. No network calls, no telemetry, no code leaves the repo.
 - **Deterministic.** Rule-based heuristics only. Same input, same output, byte for byte.
 - **Model-agnostic.** Works on any diff, whichever agent (or human) wrote it.
 - **Cites its evidence.** Every annotation names where the signal came from.
+
+## See it in action
+
+The same change in your terminal — then gating CI on it with `--fail-on`:
+
+![risk-annotate output: a ranked, colour-coded report with one line per risky hunk, then exit code 2 from --fail-on high](https://raw.githubusercontent.com/jigar48/agent-risk-annotator/main/docs/images/terminal.svg)
+
+And inside Claude Code, where `/risk-annotate` runs the tool, prints the report verbatim and walks you through it:
+
+![A real /risk-annotate session in Claude Code: the report for the latest commit, then a short summary of each MED item and a question about which to review](https://raw.githubusercontent.com/jigar48/agent-risk-annotator/main/docs/images/claude-code-session.webp)
+
+<details>
+<summary>The terminal report as text</summary>
 
 ```markdown
 # Risk annotations
@@ -48,6 +63,10 @@ Coding agents hand you large diffs. `risk-annotate` reads your git repository an
 
 - L1-20: [LOW] Diff is 32 lines, 8.0x this author's median of 4 over 5 commits; consider splitting (commit size)
 ```
+
+</details>
+
+The terminal and diagram images are generated from the tool's real output on the test fixture (`npm run docs:images`), so they always match what the CLI prints.
 
 ## Install
 

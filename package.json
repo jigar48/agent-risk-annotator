@@ -42,6 +42,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "compile": "bun build src/cli.ts --compile --outfile bin/risk-annotate",
+    "docs:images": "node scripts/readme-images.mjs",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {
