@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-21
+
 ### Added
 
 - `risk-annotate` CLI: one Markdown bullet per risky hunk,
@@ -21,4 +23,5 @@ All notable changes to this project are documented here. The format follows
 - Release workflow: Bun single binaries for linux-x64, darwin-arm64, darwin-x64 and
   windows-x64 with `SHA256SUMS`, and npm publishing with provenance.
 
-[Unreleased]: https://github.com/jigar48/agent-risk-annotator/commits/main
+[Unreleased]: https://github.com/jigar48/agent-risk-annotator/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/jigar48/agent-risk-annotator/releases/tag/v0.1.0

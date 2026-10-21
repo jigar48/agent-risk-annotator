@@ -57,7 +57,7 @@ Coding agents hand you large diffs. `risk-annotate` reads your git repository an
 | Install globally                   | `npm install -g risk-annotate`                                                                                                                                     |
 | Standalone binary (no Node needed) | Download `risk-annotate-<os>-<arch>` from [Releases](https://github.com/jigar48/agent-risk-annotator/releases), verify against `SHA256SUMS`, put it on your `PATH` |
 | Claude Code plugin                 | `/plugin marketplace add jigar48/agent-risk-annotator` then `/plugin install agent-risk-annotator@agent-risk-annotator`                                            |
-| GitHub Action                      | [`uses: jigar48/agent-risk-annotator@v1`](#github-action)                                                                                                          |
+| GitHub Action                      | [`uses: jigar48/agent-risk-annotator@v0`](#github-action)                                                                                                          |
 
 Requires `git` on `PATH`.
 
@@ -168,7 +168,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # rules A and C, and --base, need history
-      - uses: jigar48/agent-risk-annotator@v1
+      - uses: jigar48/agent-risk-annotator@v0
 ```
 
 The report lands in the job summary. On pull requests the PR's base commit is used automatically. To gate merges and surface annotations in code scanning:
@@ -181,7 +181,7 @@ steps:
   - uses: actions/checkout@v4
     with:
       fetch-depth: 0
-  - uses: jigar48/agent-risk-annotator@v1
+  - uses: jigar48/agent-risk-annotator@v0
     with:
       fail-on: high
       upload-sarif: true
