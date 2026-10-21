@@ -19,8 +19,17 @@ export interface TestRepo {
  */
 export function createRepo(): TestRepo {
   const dir = mkdtempSync(join(tmpdir(), 'risk-annotate-'));
+  // Fixed, strictly increasing commit dates: same script → same commit hashes on every run
+  // and machine, which keeps golden files that mention hashes stable.
+  let tick = 0;
+  const date = () => `${1_767_225_600 + tick * 60} +0000`; // 2026-01-01T00:00:00Z
   const git = (...args: string[]) =>
-    execFileSync('git', args, { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    execFileSync('git', args, {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, GIT_AUTHOR_DATE: date(), GIT_COMMITTER_DATE: date() },
+    });
 
   git('init', '-q', '-b', 'main');
   git('config', 'user.name', 'Test User');
@@ -41,6 +50,7 @@ export function createRepo(): TestRepo {
     },
     commit(message, author) {
       git('add', '-A');
+      tick++;
       const args = ['commit', '-q', '--allow-empty', '-m', message];
       if (author) args.push(`--author=${author.name} <${author.email}>`);
       git(...args);

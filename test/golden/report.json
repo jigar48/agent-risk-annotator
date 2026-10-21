@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "tool": {
+    "name": "risk-annotate",
+    "version": "0.1.0"
+  },
+  "range": {
+    "base": "HEAD~1",
+    "head": "HEAD",
+    "threeDot": false
+  },
+  "summary": {
+    "files": 7,
+    "HIGH": 3,
+    "MED": 3,
+    "LOW": 1
+  },
+  "files": [
+    {
+      "path": "src/a.test.ts",
+      "oldPath": null,
+      "status": "modified",
+      "level": "HIGH",
+      "hunks": [
+        {
+          "start": 1,
+          "end": 1,
+          "level": "HIGH",
+          "reason": "Removes 2 test lines; confirm coverage was not dropped to make the suite pass",
+          "evidence": "path heuristic",
+          "rule": "F",
+          "signals": [
+            {
+              "rule": "F",
+              "level": "HIGH",
+              "reason": "Removes 2 test lines; confirm coverage was not dropped to make the suite pass",
+              "evidence": "path heuristic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/a.ts",
+      "oldPath": null,
+      "status": "modified",
+      "level": "HIGH",
+      "hunks": [
+        {
+          "start": 5,
+          "end": 5,
+          "level": "HIGH",
+          "reason": "File was in fix/revert commit 9666a75 within the last 5 commits; it has regressed before",
+          "evidence": "git log",
+          "rule": "A",
+          "signals": [
+            {
+              "rule": "A",
+              "level": "HIGH",
+              "reason": "File was in fix/revert commit 9666a75 within the last 5 commits; it has regressed before",
+              "evidence": "git log"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/auth/login.ts",
+      "oldPath": null,
+      "status": "modified",
+      "level": "HIGH",
+      "hunks": [
+        {
+          "start": 5,
+          "end": 5,
+          "level": "HIGH",
+          "reason": "Touches auth code; check session, token and permission handling",
+          "evidence": "path heuristic",
+          "rule": "E",
+          "signals": [
+            {
+              "rule": "E",
+              "level": "HIGH",
+              "reason": "Touches auth code; check session, token and permission handling",
+              "evidence": "path heuristic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "oldPath": null,
+      "status": "modified",
+      "level": "MED",
+      "hunks": [
+        {
+          "start": 1,
+          "end": 1,
+          "level": "MED",
+          "reason": "CI workflow changed; check permissions, secret usage and triggers",
+          "evidence": "path heuristic",
+          "rule": "G",
+          "signals": [
+            {
+              "rule": "G",
+              "level": "MED",
+              "reason": "CI workflow changed; check permissions, secret usage and triggers",
+              "evidence": "path heuristic"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "package.json",
+      "oldPath": null,
+      "status": "modified",
+      "level": "MED",
+      "hunks": [
+        {
+          "start": 5,
+          "end": 6,
+          "level": "MED",
+          "reason": "Adds new dependency \"zod\"; review provenance, license and maintenance",
+          "evidence": "dependency manifest",
+          "rule": "D",
+          "signals": [
+            {
+              "rule": "D",
+              "level": "MED",
+              "reason": "Adds new dependency \"zod\"; review provenance, license and maintenance",
+              "evidence": "dependency manifest"
+            },
+            {
+              "rule": "H",
+              "level": "MED",
+              "reason": "package.json dependencies changed but package-lock.json was not updated; installs may drift",
+              "evidence": "dependency manifest"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/uncovered.ts",
+      "oldPath": null,
+      "status": "modified",
+      "level": "MED",
+      "hunks": [
+        {
+          "start": 3,
+          "end": 3,
+          "level": "MED",
+          "reason": "Changes a file with 0% test coverage; no test exercises these lines",
+          "evidence": "coverage report",
+          "rule": "B",
+          "signals": [
+            {
+              "rule": "B",
+              "level": "MED",
+              "reason": "Changes a file with 0% test coverage; no test exercises these lines",
+              "evidence": "coverage report"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "src/big.ts",
+      "oldPath": null,
+      "status": "added",
+      "level": "LOW",
+      "hunks": [
+        {
+          "start": 1,
+          "end": 20,
+          "level": "LOW",
+          "reason": "Diff is 32 lines, 8.0x this author's median of 4 over 5 commits; consider splitting",
+          "evidence": "commit size",
+          "rule": "C",
+          "signals": [
+            {
+              "rule": "C",
+              "level": "LOW",
+              "reason": "Diff is 32 lines, 8.0x this author's median of 4 over 5 commits; consider splitting",
+              "evidence": "commit size"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "warnings": []
+}

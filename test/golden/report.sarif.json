@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "risk-annotate",
+          "version": "0.1.0",
+          "informationUri": "https://github.com/jigar48/agent-risk-annotator",
+          "rules": [
+            {
+              "id": "RA-A",
+              "name": "FixProneFile",
+              "shortDescription": {
+                "text": "Fix-prone file"
+              },
+              "fullDescription": {
+                "text": "File was touched by a fix/revert-style commit in the last 30 commits."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://github.com/jigar48/agent-risk-annotator#rules"
+            },
+            {
+              "id": "RA-B",
+              "name": "UncoveredCode",
+              "shortDescription": {
+                "text": "Uncovered code"
+              },
+              "fullDescription": {
+                "text": "Changed lines are inside a file or function with 0% test coverage."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://github.com/jigar48/agent-risk-annotator#rules"
+            },
+            {
+              "id": "RA-C",
+              "name": "OutsizedDiff",
+              "shortDescription": {
+                "text": "Outsized diff"
+              },
+              "fullDescription": {
+                "text": "Diff is over 3x the author's median commit size."
+              },
+              "defaultConfiguration": {
+                "level": "note"
+              },
+              "helpUri": "https://github.com/jigar48/agent-risk-annotator#rules"
+            },
+            {
+              "id": "RA-D",
+              "name": "NewDependency",
+              "shortDescription": {
+                "text": "New dependency"
+              },
+              "fullDescription": {
+                "text": "Adds a new direct dependency to a manifest."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://github.com/jigar48/agent-risk-annotator#rules"
+            },
+            {
+              "id": "RA-E",
+              "name": "SensitivePath",
+              "shortDescription": {
+                "text": "Sensitive path"
+              },
+              "fullDescription": {
+                "text": "Touches a sensitive path (auth, crypto, secrets, keys, env, migrations)."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://github.com/jigar48/agent-risk-annotator#rules"
+            },
+            {
+              "id": "RA-F",
+              "name": "DeletedTestLines",
+              "shortDescription": {
+                "text": "Deleted test lines"
+              },
+              "fullDescription": {
+                "text": "Removes lines from a test file."
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "helpUri": "https://github.com/jigar48/agent-risk-annotator#rules"
+            },
+            {
+              "id": "RA-G",
+              "name": "CIInfraChange",
+              "shortDescription": {
+                "text": "CI/infra change"
+              },
+              "fullDescription": {
+                "text": "Changes CI or infrastructure configuration."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://github.com/jigar48/agent-risk-annotator#rules"
+            },
+            {
+              "id": "RA-H",
+              "name": "LockfileManifestDrift",
+              "shortDescription": {
+                "text": "Lockfile/manifest drift"
+              },
+              "fullDescription": {
+                "text": "Lockfile and manifest changed out of step."
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "helpUri": "https://github.com/jigar48/agent-risk-annotator#rules"
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "RA-F",
+          "ruleIndex": 5,
+          "level": "error",
+          "message": {
+            "text": "Removes 2 test lines; confirm coverage was not dropped to make the suite pass (path heuristic)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/a.test.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1,
+                  "endLine": 1
+                }
+              }
+            }
+          ],
+          "properties": {
+            "riskLevel": "HIGH",
+            "evidence": "path heuristic"
+          }
+        },
+        {
+          "ruleId": "RA-A",
+          "ruleIndex": 0,
+          "level": "error",
+          "message": {
+            "text": "File was in fix/revert commit 9666a75 within the last 5 commits; it has regressed before (git log)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/a.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 5
+                }
+              }
+            }
+          ],
+          "properties": {
+            "riskLevel": "HIGH",
+            "evidence": "git log"
+          }
+        },
+        {
+          "ruleId": "RA-E",
+          "ruleIndex": 4,
+          "level": "error",
+          "message": {
+            "text": "Touches auth code; check session, token and permission handling (path heuristic)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/auth/login.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 5
+                }
+              }
+            }
+          ],
+          "properties": {
+            "riskLevel": "HIGH",
+            "evidence": "path heuristic"
+          }
+        },
+        {
+          "ruleId": "RA-G",
+          "ruleIndex": 6,
+          "level": "warning",
+          "message": {
+            "text": "CI workflow changed; check permissions, secret usage and triggers (path heuristic)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/ci.yml",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1,
+                  "endLine": 1
+                }
+              }
+            }
+          ],
+          "properties": {
+            "riskLevel": "MED",
+            "evidence": "path heuristic"
+          }
+        },
+        {
+          "ruleId": "RA-D",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "Adds new dependency \"zod\"; review provenance, license and maintenance (dependency manifest)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 6
+                }
+              }
+            }
+          ],
+          "properties": {
+            "riskLevel": "MED",
+            "evidence": "dependency manifest"
+          }
+        },
+        {
+          "ruleId": "RA-H",
+          "ruleIndex": 7,
+          "level": "warning",
+          "message": {
+            "text": "package.json dependencies changed but package-lock.json was not updated; installs may drift (dependency manifest)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "package.json",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 5,
+                  "endLine": 6
+                }
+              }
+            }
+          ],
+          "properties": {
+            "riskLevel": "MED",
+            "evidence": "dependency manifest"
+          }
+        },
+        {
+          "ruleId": "RA-B",
+          "ruleIndex": 1,
+          "level": "warning",
+          "message": {
+            "text": "Changes a file with 0% test coverage; no test exercises these lines (coverage report)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/uncovered.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 3,
+                  "endLine": 3
+                }
+              }
+            }
+          ],
+          "properties": {
+            "riskLevel": "MED",
+            "evidence": "coverage report"
+          }
+        },
+        {
+          "ruleId": "RA-C",
+          "ruleIndex": 2,
+          "level": "note",
+          "message": {
+            "text": "Diff is 32 lines, 8.0x this author's median of 4 over 5 commits; consider splitting (commit size)"
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/big.ts",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 1,
+                  "endLine": 20
+                }
+              }
+            }
+          ],
+          "properties": {
+            "riskLevel": "LOW",
+            "evidence": "commit size"
+          }
+        }
+      ],
+      "properties": {
+        "range": {
+          "base": "HEAD~1",
+          "head": "HEAD",
+          "threeDot": false
+        },
+        "warnings": []
+      }
+    }
+  ]
+}

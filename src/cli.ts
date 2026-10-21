@@ -1,13 +1,9 @@
 #!/usr/bin/env node
-import { VERSION } from './version.js';
+import { main } from './main.js';
 
-// Scaffold stub: real flag parsing and orchestration land in build step 6.
-const args = process.argv.slice(2);
-
-if (args.includes('--version')) {
-  process.stdout.write(`${VERSION}\n`);
-  process.exit(0);
-}
-
-process.stderr.write('risk-annotate: not implemented yet\n');
-process.exit(1);
+// exitCode (not process.exit) lets piped stdout drain before the process ends.
+process.exitCode = main(process.argv.slice(2), {
+  stdout: (text) => process.stdout.write(text),
+  stderr: (text) => process.stderr.write(text),
+  cwd: process.cwd(),
+});
