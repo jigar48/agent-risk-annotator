@@ -6,7 +6,9 @@ import {
   getLog,
   getToplevel,
   historyTip,
+  listTree,
   resolveRange,
+  showFile,
   type CommitInfo,
   type DiffRange,
 } from './git.js';
@@ -25,11 +27,17 @@ export interface ContextOptions {
 export interface RepoContext {
   root: string;
   range: DiffRange;
+  /** The "before" revision: head~1, the merge base, or null for a root commit. */
+  baseRev: string | null;
   files: FileChange[];
   /** Commits before the change (newest first) — excludes the commits under review. */
   history: CommitInfo[];
   coverage: CoverageReport | null;
   warnings: string[];
+  /** File content before / after the change; null when absent on that side. Cached. */
+  readFile(side: 'base' | 'head', path: string): string | null;
+  /** All tracked paths at head. Cached. */
+  headPaths(): ReadonlySet<string>;
 }
 
 export function buildContext(opts: ContextOptions): RepoContext {
@@ -38,9 +46,32 @@ export function buildContext(opts: ContextOptions): RepoContext {
   const range = resolveRange({ base: opts.base, head: opts.head }, root);
   const files = parseDiff(getDiff(range, root));
 
-  const tip = historyTip(range, root);
-  const history = tip === null ? [] : getLog(tip, HISTORY_DEPTH, root);
+  const baseRev = historyTip(range, root);
+  const history = baseRev === null ? [] : getLog(baseRev, HISTORY_DEPTH, root);
 
   const { report, warnings } = loadCoverage(root, opts.coveragePath, opts.cwd);
-  return { root, range, files, history, coverage: report, warnings };
+
+  const reads = new Map<string, string | null>();
+  let tree: Set<string> | null = null;
+
+  return {
+    root,
+    range,
+    baseRev,
+    files,
+    history,
+    coverage: report,
+    warnings,
+    readFile(side, path) {
+      const rev = side === 'head' ? range.head : baseRev;
+      if (rev === null) return null;
+      const key = `${side}\0${path}`;
+      if (!reads.has(key)) reads.set(key, showFile(rev, path, root));
+      return reads.get(key) ?? null;
+    },
+    headPaths() {
+      tree ??= new Set(listTree(range.head, root));
+      return tree;
+    },
+  };
 }

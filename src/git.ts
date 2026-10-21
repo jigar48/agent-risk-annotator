@@ -113,6 +113,22 @@ export function getLog(rev: string, n: number, cwd: string): CommitInfo[] {
     });
 }
 
+/** File content at a revision, or null if it doesn't exist there. */
+export function showFile(rev: string, path: string, cwd: string): string | null {
+  try {
+    return git(['show', `${rev}:${path}`], cwd);
+  } catch {
+    return null;
+  }
+}
+
+/** Every tracked path at a revision. */
+export function listTree(rev: string, cwd: string): string[] {
+  return git(['ls-tree', '-r', '-z', '--name-only', rev], cwd)
+    .split('\0')
+    .filter((p) => p !== '');
+}
+
 export function getDiff(range: DiffRange, cwd: string): string {
   const spec = range.threeDot ? [`${range.base}...${range.head}`] : [range.base, range.head];
   return git(
