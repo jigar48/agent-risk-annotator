@@ -5,6 +5,8 @@
 [![CI](https://github.com/jigar48/agent-risk-annotator/actions/workflows/ci.yml/badge.svg)](https://github.com/jigar48/agent-risk-annotator/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/risk-annotate)](https://www.npmjs.com/package/risk-annotate)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-buildwithjigar-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/buildwithjigar)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Jigar%20Prajapati-0A66C2?logo=linkedin)](https://www.linkedin.com/in/buildaiwith-jigar-prajapati/)
 
 Coding agents hand you large diffs. `risk-annotate` reads your git repository and prints **one line per risky hunk** — sensitive paths, deleted tests, fix-prone files, uncovered code, new dependencies, lockfile drift, CI/infra changes, outsized diffs — so you review the dangerous parts first.
 
@@ -227,6 +229,31 @@ npm run compile       # single binary via Bun (requires bun)
 ```
 
 Golden files for all three output formats live in `test/golden/`. After an intentional output change, run `npx vitest run -u` and review the diff.
+
+## About the author
+
+Built by **Jigar Prajapati**, a freelance software developer and automation engineer in Ahmedabad, India, specializing in API integrations, e-commerce systems, cloud infrastructure, and AI agents (Python, Playwright, FastAPI, AWS, TypeScript).
+
+Available for custom software development, API integrations, e-commerce solutions, and AI automation consulting.
+
+- GitHub: [github.com/jigar48](https://github.com/jigar48)
+- Portfolio: [jigar48.github.io/automatewithjigar](https://jigar48.github.io/automatewithjigar/)
+- LinkedIn: [Jigar Prajapati](https://www.linkedin.com/in/buildaiwith-jigar-prajapati/)
+- Email: [jigar.prajapati48@gmail.com](mailto:jigar.prajapati48@gmail.com)
+
+### More local-first developer tools
+
+| Project                                                           | What it does                                                                                                                      |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| [awi](https://github.com/jigar48/awi)                             | Local-first linter for AI agent traces. Detects retry loops, repeated tool calls, execution cycles, and suspicious resource burn. |
+| [api-contract-diff](https://github.com/jigar48/api-contract-diff) | Catches removed endpoints, response fields, and type changes between local OpenAPI specs, with CI-friendly exit codes.            |
+| [mcp-agentmesh](https://github.com/jigar48/mcp-agentmesh)         | Single-file multi-agent utility coordinating System Architect, Coder, and Security Auditor sub-agents locally.                    |
+
+## Support my work
+
+If risk-annotate saves you review time, you can buy me a coffee. Support is optional; issue reports and feedback are just as welcome.
+
+<a href="https://buymeacoffee.com/buildwithjigar"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy me a coffee" height="41"></a>
 
 ## License
 
