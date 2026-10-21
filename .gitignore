@@ -1,7 +1,9 @@
-node_modules/
-dist/
-bin/
-coverage/
+# Leading "/" anchors to the repo root. Unanchored, "coverage/" also matched src/coverage/.
+/node_modules/
+/dist/
+/bin/
+/out/
+/coverage/
 *.log
 *.tgz
 .DS_Store
