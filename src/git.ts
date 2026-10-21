@@ -113,6 +113,29 @@ export function getLog(rev: string, n: number, cwd: string): CommitInfo[] {
     });
 }
 
+export function getAuthorEmail(rev: string, cwd: string): string {
+  return git(['log', '-1', '--format=%ae', rev, '--'], cwd).trim();
+}
+
+/**
+ * Last `n` non-merge commits by exactly this author email reachable from `rev`.
+ * `--author` is a regex, so the email is escaped and anchored in its <…> brackets.
+ */
+export function getAuthorCommits(email: string, rev: string, n: number, cwd: string): string[] {
+  const pattern = `<${email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}>`;
+  return git(['log', '--no-merges', `--author=${pattern}`, '--format=%H', `-n${n}`, rev, '--'], cwd)
+    .split('\n')
+    .filter((h) => h !== '');
+}
+
+/** Lines inserted + deleted by one commit, from `git show --shortstat`. */
+export function getCommitSize(hash: string, cwd: string): number {
+  const stat = git(['show', '--shortstat', '--format=', hash], cwd);
+  const ins = /(\d+) insertions?\(\+\)/.exec(stat)?.[1] ?? '0';
+  const del = /(\d+) deletions?\(-\)/.exec(stat)?.[1] ?? '0';
+  return Number(ins) + Number(del);
+}
+
 /** File content at a revision, or null if it doesn't exist there. */
 export function showFile(rev: string, path: string, cwd: string): string | null {
   try {

@@ -14,6 +14,7 @@ export function fakeContext(files: FileChange[], extra: Partial<RepoContext> = {
     warnings: [],
     readFile: () => null,
     headPaths: () => new Set(files.map((f) => f.path)),
+    authorHistory: () => null,
     ...extra,
   };
 }

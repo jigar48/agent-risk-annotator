@@ -2,6 +2,9 @@ import { loadCoverage, type CoverageReport } from './coverage/index.js';
 import { parseDiff, type FileChange } from './diff/parse.js';
 import {
   assertRepo,
+  getAuthorCommits,
+  getAuthorEmail,
+  getCommitSize,
   getDiff,
   getLog,
   getToplevel,
@@ -38,7 +41,20 @@ export interface RepoContext {
   readFile(side: 'base' | 'head', path: string): string | null;
   /** All tracked paths at head. Cached. */
   headPaths(): ReadonlySet<string>;
+  /**
+   * Sizes (lines changed) of the head author's last commits before the change, newest
+   * first, matched by email. Null for a root commit. Cached.
+   */
+  authorHistory(): AuthorHistory | null;
 }
+
+export interface AuthorHistory {
+  email: string;
+  sizes: number[];
+}
+
+/** How many of the author's prior commits Rule C takes the median of. */
+export const AUTHOR_SAMPLE = 10;
 
 export function buildContext(opts: ContextOptions): RepoContext {
   assertRepo(opts.cwd);
@@ -53,6 +69,7 @@ export function buildContext(opts: ContextOptions): RepoContext {
 
   const reads = new Map<string, string | null>();
   let tree: Set<string> | null = null;
+  let author: AuthorHistory | null | undefined;
 
   return {
     root,
@@ -72,6 +89,18 @@ export function buildContext(opts: ContextOptions): RepoContext {
     headPaths() {
       tree ??= new Set(listTree(range.head, root));
       return tree;
+    },
+    authorHistory() {
+      if (author === undefined) {
+        if (baseRev === null) {
+          author = null;
+        } else {
+          const email = getAuthorEmail(range.head, root);
+          const hashes = getAuthorCommits(email, baseRev, AUTHOR_SAMPLE, root);
+          author = { email, sizes: hashes.map((h) => getCommitSize(h, root)) };
+        }
+      }
+      return author;
     },
   };
 }
