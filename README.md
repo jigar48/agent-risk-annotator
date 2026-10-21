@@ -165,7 +165,7 @@ jobs:
   annotate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # rules A and C, and --base, need history
       - uses: jigar48/agent-risk-annotator@v0
@@ -178,7 +178,7 @@ permissions:
   contents: read
   security-events: write
 steps:
-  - uses: actions/checkout@v4
+  - uses: actions/checkout@v7
     with:
       fetch-depth: 0
   - uses: jigar48/agent-risk-annotator@v0

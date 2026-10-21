@@ -11,10 +11,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -48,7 +48,7 @@ jobs:
           - { bun: bun-darwin-x64, name: risk-annotate-darwin-x64 }
           - { bun: bun-windows-x64, name: risk-annotate-windows-x64.exe }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.x
@@ -56,7 +56,7 @@ jobs:
       - run: bun build src/cli.ts --compile --minify --target=${{ matrix.target.bun }} --outfile out/${{ matrix.target.name }}
       - if: matrix.target.bun == 'bun-linux-x64'
         run: ./out/${{ matrix.target.name }} --version
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target.name }}
           path: out/${{ matrix.target.name }}
@@ -68,14 +68,15 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      # `uses: jigar48/agent-risk-annotator@v1` resolves through a moving major-version tag.
+      - uses: actions/checkout@v7
+      # `uses: jigar48/agent-risk-annotator@vN` resolves through this moving major-version tag
+      # (v0 for 0.x releases, v1 from 1.0.0).
       - name: Move the major version tag
         run: |
           major="${GITHUB_REF_NAME%%.*}"
           git tag -f "$major" "$GITHUB_SHA"
           git push -f origin "refs/tags/$major"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: out
           merge-multiple: true
@@ -91,8 +92,8 @@ jobs:
       contents: read
       id-token: write # npm provenance
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
