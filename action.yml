@@ -1,0 +1,120 @@
+name: Agent Risk Annotator
+description: Annotate the risk signals in AI-agent-generated changes so reviewers know where to look first.
+author: Jigar
+branding:
+  icon: alert-triangle
+  color: orange
+
+inputs:
+  base:
+    description: Base ref to compare against (base...head). Defaults to the PR base SHA, or head~1 outside pull requests.
+    required: false
+    default: ''
+  head:
+    description: Revision under review. Defaults to HEAD.
+    required: false
+    default: ''
+  fail-on:
+    description: Fail the job if any annotation is at or above this level (high, med, low). Empty never fails.
+    required: false
+    default: ''
+  coverage:
+    description: Path to a coverage file (istanbul JSON, lcov, coverage.py JSON). Empty auto-detects.
+    required: false
+    default: ''
+  upload-sarif:
+    description: 'Also upload SARIF to GitHub code scanning (needs `security-events: write`).'
+    required: false
+    default: 'false'
+  version:
+    description: risk-annotate npm version to run.
+    required: false
+    default: 'latest'
+  cli:
+    description: Path to a local risk-annotate build (e.g. dist/cli.js) to run instead of npm. Mainly for testing this action.
+    required: false
+    default: ''
+
+outputs:
+  exit-code:
+    description: 0 = no threshold hit, 2 = fail-on threshold reached.
+    value: ${{ steps.annotate.outputs.exit-code }}
+  report:
+    description: Path to the Markdown report.
+    value: ${{ steps.annotate.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - id: node
+      shell: bash
+      run: |
+        if command -v node >/dev/null && node -e 'process.exit(+process.versions.node.split(".")[0] >= 20 ? 0 : 1)'; then
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    # Only installs Node when the runner lacks Node 20+, so the caller's toolchain is left alone.
+    - if: steps.node.outputs.ok != 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
+    - id: annotate
+      shell: bash
+      # Inputs go through env, never interpolated into the script (avoids script injection).
+      env:
+        INPUT_BASE: ${{ inputs.base }}
+        INPUT_HEAD: ${{ inputs.head }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_COVERAGE: ${{ inputs.coverage }}
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_CLI: ${{ inputs.cli }}
+        INPUT_UPLOAD_SARIF: ${{ inputs.upload-sarif }}
+        PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        set +e
+        if [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+          echo "::warning title=risk-annotate::Shallow clone detected. Use actions/checkout with fetch-depth: 0 so history-based rules (A, C) and --base work."
+        fi
+
+        args=()
+        base="${INPUT_BASE:-$PR_BASE_SHA}"
+        [ -n "$base" ] && args+=(--base "$base")
+        [ -n "$INPUT_HEAD" ] && args+=(--head "$INPUT_HEAD")
+        [ -n "$INPUT_COVERAGE" ] && args+=(--coverage "$INPUT_COVERAGE")
+        fail=()
+        [ -n "$INPUT_FAIL_ON" ] && fail=(--fail-on "$INPUT_FAIL_ON")
+
+        if [ -n "$INPUT_CLI" ]; then cmd=(node "$INPUT_CLI"); else cmd=(npx -y "risk-annotate@$INPUT_VERSION"); fi
+
+        report="$RUNNER_TEMP/risk-annotate.md"
+        "${cmd[@]}" "${args[@]}" "${fail[@]}" --format markdown > "$report"
+        code=$?
+        if [ "$code" -ne 0 ] && [ "$code" -ne 2 ]; then
+          echo "::error title=risk-annotate::risk-annotate failed with exit code $code (see log above)"
+          exit 1
+        fi
+
+        cat "$report" >> "$GITHUB_STEP_SUMMARY"
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        echo "report=$report" >> "$GITHUB_OUTPUT"
+
+        # Output is deterministic, so a second pass yields the same annotations as SARIF.
+        if [ "$INPUT_UPLOAD_SARIF" = "true" ]; then
+          "${cmd[@]}" "${args[@]}" --format sarif > "$RUNNER_TEMP/risk-annotate.sarif" || exit 1
+        fi
+
+    - if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ runner.temp }}/risk-annotate.sarif
+        category: risk-annotate
+
+    # Fail last, so the summary and SARIF are published even when the threshold is hit.
+    - if: steps.annotate.outputs.exit-code == '2'
+      shell: bash
+      env:
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+      run: |
+        echo "::error title=risk-annotate::Annotations at or above '$INPUT_FAIL_ON' found. See the job summary."
+        exit 2

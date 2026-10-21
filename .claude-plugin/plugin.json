@@ -1,0 +1,12 @@
+{
+  "name": "agent-risk-annotator",
+  "version": "0.1.0",
+  "description": "Annotate the risk signals in AI-agent-generated changes so developers know where to look first when reviewing.",
+  "author": {
+    "name": "Jigar"
+  },
+  "homepage": "https://github.com/jigar48/agent-risk-annotator#readme",
+  "repository": "https://github.com/jigar48/agent-risk-annotator",
+  "license": "MIT",
+  "keywords": ["code-review", "risk", "git", "diff", "ai-agents"]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "agent-risk-annotator",
+  "description": "Local, deterministic risk annotations for AI-agent-generated changes.",
+  "owner": {
+    "name": "Jigar"
+  },
+  "plugins": [
+    {
+      "name": "agent-risk-annotator",
+      "source": "./",
+      "description": "Annotate the risk signals in AI-agent-generated changes so developers know where to look first when reviewing.",
+      "version": "0.1.0"
+    }
+  ]
+}

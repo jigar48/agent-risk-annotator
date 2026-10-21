@@ -45,4 +45,45 @@ jobs:
       - run: npm run build
       - run: node dist/cli.js --version
 
-      # TODO(step 7): dogfood — run the built CLI against this PR's own diff.
+  dogfood:
+    name: dogfood (action on its own diff)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm run build
+      # Runs this repo's action.yml against this PR/push using the fresh build, so both the
+      # CLI and the action are exercised. Report-only: no fail-on.
+      - id: risk
+        uses: ./
+        with:
+          cli: dist/cli.js
+      - run: test "${{ steps.risk.outputs.exit-code }}" = "0"
+
+  compile:
+    name: bun single-binary build
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.x
+      - run: bun build src/cli.ts --compile --minify --target=bun-linux-x64 --outfile out/risk-annotate
+      - name: Binary matches the Node build
+        run: |
+          git config --global user.name "ci"
+          git config --global user.email "ci@example.invalid"
+          ./out/risk-annotate --version
+          ./out/risk-annotate --format json > bin.json
+          npm ci && npm run build
+          node dist/cli.js --format json > node.json
+          diff node.json bin.json

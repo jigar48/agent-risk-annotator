@@ -1,0 +1,95 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: |
+          git config --global user.name "ci"
+          git config --global user.email "ci@example.invalid"
+      - name: Tag matches package.json, plugin manifests and src/version.ts
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for v in \
+            "$(node -p 'require("./package.json").version')" \
+            "$(node -p 'require("./.claude-plugin/plugin.json").version')" \
+            "$(node -p 'require("./.claude-plugin/marketplace.json").plugins[0].version')" \
+            "$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" src/version.ts)"; do
+            if [ "$v" != "$tag" ]; then echo "::error::version $v does not match tag $tag"; exit 1; fi
+          done
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  binaries:
+    needs: verify
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+          - { bun: bun-linux-x64, name: risk-annotate-linux-x64 }
+          - { bun: bun-darwin-arm64, name: risk-annotate-darwin-arm64 }
+          - { bun: bun-darwin-x64, name: risk-annotate-darwin-x64 }
+          - { bun: bun-windows-x64, name: risk-annotate-windows-x64.exe }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.x
+      # Bun cross-compiles every target from one Linux runner.
+      - run: bun build src/cli.ts --compile --minify --target=${{ matrix.target.bun }} --outfile out/${{ matrix.target.name }}
+      - if: matrix.target.bun == 'bun-linux-x64'
+        run: ./out/${{ matrix.target.name }} --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target.name }}
+          path: out/${{ matrix.target.name }}
+          if-no-files-found: error
+
+  github-release:
+    needs: binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - run: cd out && sha256sum risk-annotate-* > SHA256SUMS && cat SHA256SUMS
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" out/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+
+  npm-publish:
+    needs: github-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
