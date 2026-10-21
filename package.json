@@ -1,0 +1,56 @@
+{
+  "name": "risk-annotate",
+  "version": "0.1.0",
+  "description": "Annotate the risk signals in AI-agent-generated changes so developers know where to look first when reviewing.",
+  "keywords": [
+    "code-review",
+    "git",
+    "diff",
+    "risk",
+    "ai-agents",
+    "claude-code",
+    "cli"
+  ],
+  "homepage": "https://github.com/jigar48/agent-risk-annotator#readme",
+  "bugs": {
+    "url": "https://github.com/jigar48/agent-risk-annotator/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jigar48/agent-risk-annotator.git"
+  },
+  "license": "MIT",
+  "author": "Jigar",
+  "type": "module",
+  "bin": {
+    "risk-annotate": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "compile": "bun build src/cli.ts --compile --outfile bin/risk-annotate",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.14.0",
+    "@types/node": "^20.17.6",
+    "eslint": "^9.14.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.13.0",
+    "vitest": "^2.1.4"
+  }
+}
