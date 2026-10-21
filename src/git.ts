@@ -75,6 +75,44 @@ export function resolveRange(opts: { base?: string; head?: string }, cwd: string
   return { base: refExists(parent, cwd) ? parent : EMPTY_TREE, head, threeDot: false };
 }
 
+export function getToplevel(cwd: string): string {
+  return git(['rev-parse', '--show-toplevel'], cwd).trim();
+}
+
+export interface CommitInfo {
+  hash: string;
+  authorEmail: string;
+  subject: string;
+  /** Paths touched by the commit (new names for renames). Empty for merges. */
+  files: string[];
+}
+
+/** The commit history the change is judged against: what existed before it. */
+export function historyTip(range: DiffRange, cwd: string): string | null {
+  if (range.base === EMPTY_TREE) return null;
+  if (!range.threeDot) return range.base;
+  return git(['merge-base', range.base, range.head], cwd).trim() || null;
+}
+
+const RS = '\x1e';
+const US = '\x1f';
+
+/** Last `n` commits reachable from `rev`, newest first. */
+export function getLog(rev: string, n: number, cwd: string): CommitInfo[] {
+  const out = git(
+    ['log', `-n${n}`, `--format=${RS}%H${US}%ae${US}%s`, '--name-only', rev, '--'],
+    cwd,
+  );
+  return out
+    .split(RS)
+    .filter((rec) => rec.trim() !== '')
+    .map((rec) => {
+      const [header = '', ...rest] = rec.split('\n');
+      const [hash = '', authorEmail = '', subject = ''] = header.split(US);
+      return { hash, authorEmail, subject, files: rest.filter((l) => l !== '') };
+    });
+}
+
 export function getDiff(range: DiffRange, cwd: string): string {
   const spec = range.threeDot ? [`${range.base}...${range.head}`] : [range.base, range.head];
   return git(
