@@ -88,18 +88,20 @@ risk-annotate --base main              # review a branch: main...HEAD (since it 
 risk-annotate --base v1.2.0 --head v1.3.0
 risk-annotate --format json            # machine-readable
 risk-annotate --fail-on high           # exit 2 if anything is HIGH (for CI)
+risk-annotate --sensitive-path 'src/payments/**'   # also flag your own risky paths HIGH
 ```
 
-| Flag                | Default     | Meaning                                                                         |
-| ------------------- | ----------- | ------------------------------------------------------------------------------- |
-| `--base <ref>`      | —           | Compare `<base>...<head>` (from the merge base). Without it: `<head>~1..<head>` |
-| `--head <ref>`      | `HEAD`      | Revision under review                                                           |
-| `--format <fmt>`    | `markdown`  | `markdown`, `json` or `sarif`                                                   |
-| `--fail-on <level>` | —           | Exit `2` if any annotation is at or above `high`, `med` or `low`                |
-| `--coverage <path>` | auto-detect | Coverage file to use (see [Coverage](#coverage))                                |
-| `--cwd <dir>`       | `.`         | Run against the repository containing `<dir>`                                   |
-| `-v`, `--version`   |             | Print the version                                                               |
-| `-h`, `--help`      |             | Print help                                                                      |
+| Flag                      | Default     | Meaning                                                                                                                      |
+| ------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `--base <ref>`            | —           | Compare `<base>...<head>` (from the merge base). Without it: `<head>~1..<head>`                                              |
+| `--head <ref>`            | `HEAD`      | Revision under review                                                                                                        |
+| `--format <fmt>`          | `markdown`  | `markdown`, `json` or `sarif`                                                                                                |
+| `--fail-on <level>`       | —           | Exit `2` if any annotation is at or above `high`, `med` or `low`                                                             |
+| `--coverage <path>`       | auto-detect | Coverage file to use (see [Coverage](#coverage))                                                                             |
+| `--sensitive-path <glob>` | —           | Extra path to flag HIGH under Rule E. Repeatable (see [Project-specific sensitive paths](#project-specific-sensitive-paths)) |
+| `--cwd <dir>`             | `.`         | Run against the repository containing `<dir>`                                                                                |
+| `-v`, `--version`         |             | Print the version                                                                                                            |
+| `-h`, `--help`            |             | Print help                                                                                                                   |
 
 On a repository's very first commit there is no `HEAD~1`; the whole commit is compared against git's empty tree.
 
@@ -132,7 +134,7 @@ A few edge cases:
 | **B** Uncovered code | Changed lines inside a file or function with 0% coverage. Silent without a coverage report                                                                              | MED   | `coverage report`     |
 | **C** Outsized diff  | Total diff lines > 3× the median of the head author's last 10 commits before the change (matched by email). Reported once, on the largest hunk. Needs ≥ 3 prior commits | LOW   | `commit size`         |
 | **D** New dependency | A new direct dependency in `package.json`, `composer.json`, `requirements*.txt`, `pyproject.toml`, `Cargo.toml` or `go.mod`; names the dependency                       | MED   | `dependency manifest` |
-| **E** Sensitive path | `**/auth/**`, `**/crypto/**`, `**/secrets/**`, `*.pem`, `*.key`, `.env*`, `**/migrations/**` (old or new path)                                                          | HIGH  | `path heuristic`      |
+| **E** Sensitive path | `**/auth/**`, `**/crypto/**`, `**/secrets/**`, `*.pem`, `*.key`, `.env*`, `**/migrations/**`, plus any `--sensitive-path` patterns (old or new path)                    | HIGH  | `path heuristic`      |
 | **F** Deleted tests  | Any hunk that removes lines from `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.go`                                                                                       | HIGH  | `path heuristic`      |
 | **G** CI/infra       | `.github/workflows/**`, `Dockerfile*`, `docker-compose*`, `**/terraform/**`, `**/k8s/**`                                                                                | MED   | `path heuristic`      |
 | **H** Lockfile drift | A lockfile changed with no change to its manifest, or a manifest's dependencies changed while its lockfile didn't (npm/yarn/pnpm/bun, composer, poetry/uv, cargo, go)   | MED   | `dependency manifest` |
@@ -144,6 +146,80 @@ Notes on behaviour:
 - **Rule F flags edits, not just removals.** Rewriting an assertion removes a line, so it is flagged; the reason says "Rewrites" rather than "Removes".
 - **Rule H is workspace-aware.** A root `pnpm-lock.yaml` is explained by a change to any nested `package.json`, and a nested manifest is covered by the nearest lockfile above it. Manifest edits that don't touch dependencies (scripts, metadata) are ignored, as are projects with no lockfile.
 - **Unparseable manifests and ambiguous coverage paths make rules stay silent** rather than guess.
+
+## Project-specific sensitive paths
+
+The built-in Rule E patterns know about `auth/`, `crypto/`, keys and migrations — not about _your_ checkout flow, payment adapters or permission checks. Add your own with `--sensitive-path`; matching files are flagged HIGH under Rule E, alongside every built-in pattern.
+
+```bash
+risk-annotate --sensitive-path 'src/payments/**' --sensitive-path '**/webhooks/*.ts'
+```
+
+Always quote patterns, or your shell may expand `*` before risk-annotate sees it.
+
+### Example: a synthetic Next.js storefront
+
+An agent adds coupon support: one line in the checkout route zeroes the order total when a coupon is present, a payment call changes, and `middleware.ts` gains an early return that skips the session check for `/api/health`. None of these paths match a built-in pattern:
+
+```text
+$ npx risk-annotate
+No risk signals found.
+```
+
+With three project-specific patterns, the same commit (real output):
+
+```text
+$ npx risk-annotate --sensitive-path 'app/api/checkout/**' --sensitive-path 'lib/payments/**' --sensitive-path middleware.ts
+# Risk annotations
+
+`HEAD~1..HEAD` · 3 files · 3 HIGH · 0 MED · 0 LOW
+
+## `app/api/checkout/route.ts`
+
+- L3-3: [HIGH] Matches project sensitive path `app/api/checkout/**`; review with extra care (path heuristic)
+
+## `lib/payments/stripe.ts`
+
+- L2-2: [HIGH] Matches project sensitive path `lib/payments/**`; review with extra care (path heuristic)
+
+## `middleware.ts`
+
+- L2-2: [HIGH] Matches project sensitive path `middleware.ts`; review with extra care (path heuristic)
+```
+
+The annotations point at where to look; they don't say the coupon logic is wrong. That judgment is the reviewer's.
+
+### More starting points
+
+| Stack                | Patterns                                                                             |
+| -------------------- | ------------------------------------------------------------------------------------ |
+| Next.js              | `'app/api/**'` `'middleware.ts'` `'next.config.*'` `'lib/payments/**'`               |
+| Django               | `'settings.py'` `'**/settings/**'` `'**/permissions.py'` `'**/views/payment*.py'`    |
+| Magento / e-commerce | `'app/code/**/Payment/**'` `'**/Checkout/**'` `'**/webhooks/**'` `'app/etc/env.php'` |
+| Data / ML pipelines  | `'pipelines/**/export*.py'` `'**/pii/**'` `'dags/**/billing*.py'`                    |
+
+### Syntax
+
+| Pattern               | Matches                                                                                                                                                                                                               |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*`                   | Any run of characters within one path segment (never crosses `/`)                                                                                                                                                     |
+| `?`                   | Exactly one character within a segment                                                                                                                                                                                |
+| `**`                  | Any number of directories, as a whole segment: `src/**/x.ts` matches `src/x.ts` and `src/a/b/x.ts`. At the end (`src/**`) it needs at least one level below, so it matches files under `src/`, not a file named `src` |
+| `name` (no `/`)       | That file name in any directory, like `.gitignore`: `settings.py` matches `mysite/settings.py`                                                                                                                        |
+| `dir/` (trailing `/`) | Everything under `dir`, same as `dir/**`                                                                                                                                                                              |
+
+- Patterns are **repository-relative** and **case-sensitive**, like git's own paths. A leading `./` is ignored, and Windows-style `\` separators are converted to `/`.
+- Both the old and new path of a renamed file are checked, so moving a file out of a sensitive directory is still flagged.
+- When a file matches a built-in pattern and a custom one, the more specific built-in reason is shown. Among custom patterns, the first in sorted order is named, so the order of your flags never changes the output.
+- Duplicates are removed. Up to 100 patterns of up to 256 characters each are accepted.
+- Rejected with exit code `1` and a message naming the pattern: absolute paths (`/x`, `C:\x`), `..` or `.` segments, `**` inside a segment (`a**b`), brackets and braces (`[ab]`, `{a,b}` — repeat the flag instead), negation (`!x`), backticks, control characters, and empty or whitespace-padded patterns.
+
+### Limitations and security notes
+
+- **Path-based only.** A pattern says _where_ risk lives; it can't see what the code does. A risky change outside your patterns, or a harmless one inside them, is reported accordingly. This is not a security scan and does not guarantee that vulnerabilities are found.
+- **Patterns never leave the process.** They are compared against path strings from `git diff`; they are not passed to git, a shell or the filesystem, so they cannot read files, escape the repository or run commands.
+- **Bounded matching.** The matcher uses no regular expressions; its work is bounded by pattern length × path length, so adversarial patterns cannot cause catastrophic backtracking (ReDoS). There's a regression test for this.
+- **Nothing is persisted or sent anywhere.** The pattern list isn't stored as its own field in JSON or SARIF; only the annotation's reason names the pattern that matched, so those formats are unchanged in shape. To reuse a set of patterns, keep them in a script or CI step for now — a config file is on the [roadmap](#roadmap).
 
 ## Coverage
 
@@ -232,7 +308,7 @@ Annotations tell you **where to look**, never what is wrong. An empty result mea
 
 ## Roadmap
 
-- **v1.1 — `.riskannotate.yml`.** Per-repo configuration: custom sensitive-path patterns, per-rule level overrides, ignore globs, and history-window sizes. v1 is flags-only.
+- **v1.1 — `.riskannotate.yml`.** Per-repo configuration: persisted `--sensitive-path` patterns, per-rule level overrides, ignore globs, and history-window sizes. Today everything is flags-only.
 - **Opt-in LLM pass.** The rule engine has a marked `// EXTENSION POINT: llm-pass` where an optional model pass could add signals with its own evidence source. It will never remove or reorder heuristic signals, and it will stay off by default so the local, deterministic core is unchanged.
 - More manifest ecosystems for rules D and H (Pipfile, Gemfile, Gradle, Maven).
 

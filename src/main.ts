@@ -5,6 +5,7 @@ import { FORMATS, render, type Format } from './format/index.js';
 import { GitError } from './git.js';
 import { annotate } from './rules/engine.js';
 import { LEVEL_RANK, type Level } from './rules/types.js';
+import { normalizeSensitivePaths, PatternError } from './sensitive-paths.js';
 import { VERSION } from './version.js';
 
 export const EXIT_OK = 0;
@@ -30,6 +31,9 @@ Options:
   --fail-on <level>   Exit 2 if any annotation is at or above high | med | low
   --coverage <path>   Coverage file (istanbul JSON, lcov, coverage.py JSON).
                       Default: auto-detect in the repo root
+  --sensitive-path <glob>
+                      Extra repo-relative path to flag HIGH (Rule E), on top of the
+                      built-ins. Repeatable. Supports *, ** and ?. Quote it in your shell.
   --cwd <dir>         Run against the repository containing <dir>. Default: .
   -v, --version       Print the version
   -h, --help          Print this help
@@ -54,6 +58,7 @@ export function main(argv: readonly string[], io: Io): number {
         format: { type: 'string', default: 'markdown' },
         'fail-on': { type: 'string' },
         coverage: { type: 'string' },
+        'sensitive-path': { type: 'string', multiple: true },
         cwd: { type: 'string' },
         version: { type: 'boolean', short: 'v' },
         help: { type: 'boolean', short: 'h' },
@@ -93,12 +98,21 @@ export function main(argv: readonly string[], io: Io): number {
     failOn = normalized as Level;
   }
 
+  let sensitivePaths: string[];
+  try {
+    sensitivePaths = normalizeSensitivePaths(values['sensitive-path'] ?? []);
+  } catch (err) {
+    if (err instanceof PatternError) return usageError(io, err.message);
+    throw err;
+  }
+
   try {
     const ctx = buildContext({
       cwd: values.cwd ?? io.cwd,
       base: values.base,
       head: values.head,
       coveragePath: values.coverage,
+      sensitivePaths,
     });
     for (const w of ctx.warnings) io.stderr(`risk-annotate: warning: ${w}\n`);
 

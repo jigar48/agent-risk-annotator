@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `--sensitive-path <glob>` (repeatable): flag project-specific paths HIGH under Rule E, on
+  top of the built-in patterns. Supports `*`, `**` and `?`; repo-relative; checks old and new
+  paths of renames; Windows `\` separators accepted. Patterns are normalized, deduplicated
+  and sorted so flag order never changes the output. Invalid patterns (absolute, `..`,
+  braces/brackets, negation, `**` inside a segment, control characters, over 256 chars or
+  more than 100 patterns) exit 1 with a message naming the pattern.
+
+### Security
+
+- Replaced the regex-based glob matcher with one that uses no regular expressions. The old
+  matcher could backtrack polynomially on patterns with many `*` (about 1.9 s for one match
+  with 12 stars). Built-in patterns were not affected, but user-supplied patterns would
+  have been. Matching is now bounded by pattern length × path length, with a regression test.
+
 ## [0.1.0] - 2026-10-21
 
 ### Added

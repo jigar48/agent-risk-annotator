@@ -24,6 +24,8 @@ export interface ContextOptions {
   base?: string;
   head?: string;
   coveragePath?: string;
+  /** Extra Rule E patterns, already validated by normalizeSensitivePaths. */
+  sensitivePaths?: readonly string[];
 }
 
 /** Everything rules need, gathered once so each rule is a pure function of it. */
@@ -37,6 +39,8 @@ export interface RepoContext {
   history: CommitInfo[];
   coverage: CoverageReport | null;
   warnings: string[];
+  /** Project-specific sensitive-path globs from `--sensitive-path`, normalized and sorted. */
+  sensitivePaths: readonly string[];
   /** File content before / after the change; null when absent on that side. Cached. */
   readFile(side: 'base' | 'head', path: string): string | null;
   /** All tracked paths at head. Cached. */
@@ -79,6 +83,7 @@ export function buildContext(opts: ContextOptions): RepoContext {
     history,
     coverage: report,
     warnings,
+    sensitivePaths: opts.sensitivePaths ?? [],
     readFile(side, path) {
       const rev = side === 'head' ? range.head : baseRev;
       if (rev === null) return null;
