@@ -3,6 +3,7 @@ import {
   MAX_PATTERN_LENGTH,
   MAX_SENSITIVE_PATHS,
   PatternError,
+  combineSensitivePaths,
   normalizePattern,
   normalizeSensitivePaths,
 } from '../src/sensitive-paths.js';
@@ -97,5 +98,41 @@ describe('normalizeSensitivePaths', () => {
 
   it('reports the first invalid pattern', () => {
     expect(() => normalizeSensitivePaths(['ok/**', '/abs'])).toThrow(/"\/abs"/);
+  });
+});
+
+describe('combineSensitivePaths', () => {
+  it('merges sources into one deduped, sorted list', () => {
+    expect(combineSensitivePaths(['src/z/**', 'b/**'], ['b/**', 'a/**'])).toEqual([
+      'a/**',
+      'b/**',
+      'src/z/**',
+    ]);
+    expect(combineSensitivePaths([], [])).toEqual([]);
+  });
+
+  it('gives the same result whichever source a pattern comes from', () => {
+    expect(combineSensitivePaths(['a/**'], ['b/**'])).toEqual(
+      combineSensitivePaths(['b/**'], ['a/**']),
+    );
+  });
+
+  it(`caps the combined unique patterns at ${MAX_SENSITIVE_PATHS}`, () => {
+    const a = Array.from({ length: 60 }, (_, i) => `a${i}/**`);
+    const b = Array.from({ length: 40 }, (_, i) => `b${i}/**`);
+    expect(combineSensitivePaths(a, b)).toHaveLength(100);
+    expect(combineSensitivePaths(a, [...b, 'a0/**'])).toHaveLength(100);
+    expect(() => combineSensitivePaths(a, [...b, 'c/**'])).toThrow(
+      /at most 100 unique sensitive-path patterns .*\(got 101\)/,
+    );
+  });
+});
+
+describe('normalizePattern source label', () => {
+  it('defaults to --sensitive-path and accepts another source name', () => {
+    expect(() => normalizeSensitivePaths(['/abs'])).toThrow(/^--sensitive-path "\/abs": /);
+    expect(() => normalizePattern('/abs', '.riskannotate.json sensitivePaths[2]')).toThrow(
+      /^\.riskannotate\.json sensitivePaths\[2\] "\/abs": /,
+    );
   });
 });

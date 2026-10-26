@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Optional repository configuration, `.riskannotate.json` at the git repository root:
+  `{ "version": 1, "sensitivePaths": [...] }`. Its patterns are combined with
+  `--sensitive-path` flags (deduplicated and sorted, so output stays deterministic) and flag
+  matching files HIGH under Rule E. The file can only add sensitive paths; it cannot
+  suppress findings, change levels or disable rules. Without the file nothing changes, and
+  a config produces output identical to passing the same patterns as flags.
+
+### Security
+
+- The config fails closed: malformed JSON, invalid UTF-8, unknown properties (including
+  `__proto__`), a `version` other than `1`, invalid patterns, more than 100 unique patterns
+  (config and flags combined), files over 32 KiB, symlinks and non-regular files exit 1
+  with a message naming the problem. Control and bidirectional characters are escaped in
+  messages and rejected in config patterns.
+
 ## [0.2.0] - 2026-10-23
 
 ### Added

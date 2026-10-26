@@ -1,4 +1,5 @@
 import { parseArgs } from 'node:util';
+import { CONFIG_FILE, ConfigError } from './config.js';
 import { buildContext } from './context.js';
 import { CoverageError } from './coverage/index.js';
 import { FORMATS, render, type Format } from './format/index.js';
@@ -34,13 +35,20 @@ Options:
   --sensitive-path <glob>
                       Extra repo-relative path to flag HIGH (Rule E), on top of the
                       built-ins. Repeatable. Supports *, ** and ?. Quote it in your shell.
+                      Combined with "sensitivePaths" from ${CONFIG_FILE}.
   --cwd <dir>         Run against the repository containing <dir>. Default: .
   -v, --version       Print the version
   -h, --help          Print this help
 
+Configuration:
+  ${CONFIG_FILE} at the repository root is read when present:
+    { "version": 1, "sensitivePaths": ["src/payments/**"] }
+  It can only add sensitive paths. An invalid file is an error (exit 1).
+
 Exit codes:
   0  success
-  1  error (bad flag, unknown revision, unreadable coverage file, not a git repo)
+  1  error (bad flag, unknown revision, unreadable coverage file, not a git repo,
+     invalid ${CONFIG_FILE})
   2  --fail-on threshold reached
 `;
 
@@ -129,7 +137,12 @@ export function main(argv: readonly string[], io: Io): number {
     }
     return EXIT_OK;
   } catch (err) {
-    if (err instanceof GitError || err instanceof CoverageError) {
+    if (
+      err instanceof GitError ||
+      err instanceof CoverageError ||
+      err instanceof ConfigError ||
+      err instanceof PatternError
+    ) {
       io.stderr(`risk-annotate: ${err.message}\n`);
     } else {
       const e = err as Error;
