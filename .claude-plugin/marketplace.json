@@ -9,7 +9,7 @@
       "name": "agent-risk-annotator",
       "source": "./",
       "description": "Annotate the risk signals in AI-agent-generated changes so developers know where to look first when reviewing.",
-      "version": "0.2.0"
+      "version": "0.3.0"
     }
   ]
 }
