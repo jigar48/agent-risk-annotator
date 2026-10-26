@@ -6,7 +6,7 @@
       "tool": {
         "driver": {
           "name": "risk-annotate",
-          "version": "0.2.0",
+          "version": "0.3.0",
           "informationUri": "https://github.com/jigar48/agent-risk-annotator",
           "rules": [
             {

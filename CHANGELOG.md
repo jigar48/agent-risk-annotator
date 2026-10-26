@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-26
+
 ### Added
 
 - Optional repository configuration, `.riskannotate.json` at the git repository root:
@@ -58,6 +60,7 @@ All notable changes to this project are documented here. The format follows
 - Release workflow: Bun single binaries for linux-x64, darwin-arm64, darwin-x64 and
   windows-x64 with `SHA256SUMS`, and npm publishing with provenance.
 
-[Unreleased]: https://github.com/jigar48/agent-risk-annotator/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/jigar48/agent-risk-annotator/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/jigar48/agent-risk-annotator/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jigar48/agent-risk-annotator/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jigar48/agent-risk-annotator/releases/tag/v0.1.0

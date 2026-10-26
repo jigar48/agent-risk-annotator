@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "tool": {
     "name": "risk-annotate",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "range": {
     "base": "HEAD~1",
