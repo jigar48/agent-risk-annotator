@@ -1,5 +1,6 @@
 /**
- * Validation and normalization for `--sensitive-path <glob>`.
+ * Validation and normalization for `--sensitive-path <glob>` and the `sensitivePaths` list in
+ * `.riskannotate.json`. Both sources go through the same checks.
  *
  * Patterns are only ever compared against repo-relative paths reported by `git diff`; they
  * are never passed to git, a shell, or the filesystem. Validation keeps them in the syntax
@@ -19,14 +20,29 @@ export function normalizeSensitivePaths(raw: readonly string[]): string[] {
       `at most ${MAX_SENSITIVE_PATHS} --sensitive-path patterns are allowed (got ${raw.length})`,
     );
   }
-  return [...new Set(raw.map(normalizePattern))].sort();
+  return [...new Set(raw.map((p) => normalizePattern(p)))].sort();
 }
 
-export function normalizePattern(input: string): string {
+/**
+ * Merges already-normalized pattern lists (CLI flags, config file) into one deduped, sorted
+ * list, and applies the pattern cap to the combined unique set.
+ */
+export function combineSensitivePaths(...lists: readonly (readonly string[])[]): string[] {
+  const all = [...new Set(lists.flat())].sort();
+  if (all.length > MAX_SENSITIVE_PATHS) {
+    throw new PatternError(
+      `at most ${MAX_SENSITIVE_PATHS} unique sensitive-path patterns are allowed across --sensitive-path and .riskannotate.json (got ${all.length})`,
+    );
+  }
+  return all;
+}
+
+/** `source` names where the pattern came from in error messages. */
+export function normalizePattern(input: string, source = '--sensitive-path'): string {
   const fail = (why: string): never => {
     const shown = input.length > 80 ? `${input.slice(0, 79)}…` : input;
     // JSON.stringify escapes control characters, so the message can't inject terminal codes.
-    throw new PatternError(`--sensitive-path ${JSON.stringify(shown)}: ${why}`);
+    throw new PatternError(`${source} ${JSON.stringify(shown)}: ${why}`);
   };
 
   if (input.length === 0 || input.trim() === '') fail('pattern is empty');

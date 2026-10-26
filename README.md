@@ -91,6 +91,8 @@ risk-annotate --fail-on high           # exit 2 if anything is HIGH (for CI)
 risk-annotate --sensitive-path 'src/payments/**'   # also flag your own risky paths HIGH
 ```
 
+Commit a [`.riskannotate.json`](#repository-configuration-riskannotatejson) to share those paths with your team instead of repeating the flag.
+
 | Flag                      | Default     | Meaning                                                                                                                      |
 | ------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `--base <ref>`            | —           | Compare `<base>...<head>` (from the merge base). Without it: `<head>~1..<head>`                                              |
@@ -128,16 +130,16 @@ A few edge cases:
 
 ## Rules
 
-| Rule                 | Detects                                                                                                                                                                 | Level | Evidence              |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------------------- |
-| **A** Fix-prone file | The file appears in a commit whose subject matches `/fix\|hotfix\|revert\|incident\|bug/i` within the 30 commits before the change                                      | HIGH  | `git log`             |
-| **B** Uncovered code | Changed lines inside a file or function with 0% coverage. Silent without a coverage report                                                                              | MED   | `coverage report`     |
-| **C** Outsized diff  | Total diff lines > 3× the median of the head author's last 10 commits before the change (matched by email). Reported once, on the largest hunk. Needs ≥ 3 prior commits | LOW   | `commit size`         |
-| **D** New dependency | A new direct dependency in `package.json`, `composer.json`, `requirements*.txt`, `pyproject.toml`, `Cargo.toml` or `go.mod`; names the dependency                       | MED   | `dependency manifest` |
-| **E** Sensitive path | `**/auth/**`, `**/crypto/**`, `**/secrets/**`, `*.pem`, `*.key`, `.env*`, `**/migrations/**`, plus any `--sensitive-path` patterns (old or new path)                    | HIGH  | `path heuristic`      |
-| **F** Deleted tests  | Any hunk that removes lines from `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.go`                                                                                       | HIGH  | `path heuristic`      |
-| **G** CI/infra       | `.github/workflows/**`, `Dockerfile*`, `docker-compose*`, `**/terraform/**`, `**/k8s/**`                                                                                | MED   | `path heuristic`      |
-| **H** Lockfile drift | A lockfile changed with no change to its manifest, or a manifest's dependencies changed while its lockfile didn't (npm/yarn/pnpm/bun, composer, poetry/uv, cargo, go)   | MED   | `dependency manifest` |
+| Rule                 | Detects                                                                                                                                                                               | Level | Evidence              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------------------- |
+| **A** Fix-prone file | The file appears in a commit whose subject matches `/fix\|hotfix\|revert\|incident\|bug/i` within the 30 commits before the change                                                    | HIGH  | `git log`             |
+| **B** Uncovered code | Changed lines inside a file or function with 0% coverage. Silent without a coverage report                                                                                            | MED   | `coverage report`     |
+| **C** Outsized diff  | Total diff lines > 3× the median of the head author's last 10 commits before the change (matched by email). Reported once, on the largest hunk. Needs ≥ 3 prior commits               | LOW   | `commit size`         |
+| **D** New dependency | A new direct dependency in `package.json`, `composer.json`, `requirements*.txt`, `pyproject.toml`, `Cargo.toml` or `go.mod`; names the dependency                                     | MED   | `dependency manifest` |
+| **E** Sensitive path | `**/auth/**`, `**/crypto/**`, `**/secrets/**`, `*.pem`, `*.key`, `.env*`, `**/migrations/**`, plus project patterns from `--sensitive-path` or `.riskannotate.json` (old or new path) | HIGH  | `path heuristic`      |
+| **F** Deleted tests  | Any hunk that removes lines from `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.go`                                                                                                     | HIGH  | `path heuristic`      |
+| **G** CI/infra       | `.github/workflows/**`, `Dockerfile*`, `docker-compose*`, `**/terraform/**`, `**/k8s/**`                                                                                              | MED   | `path heuristic`      |
+| **H** Lockfile drift | A lockfile changed with no change to its manifest, or a manifest's dependencies changed while its lockfile didn't (npm/yarn/pnpm/bun, composer, poetry/uv, cargo, go)                 | MED   | `dependency manifest` |
 
 Notes on behaviour:
 
@@ -149,7 +151,7 @@ Notes on behaviour:
 
 ## Project-specific sensitive paths
 
-The built-in Rule E patterns know about `auth/`, `crypto/`, keys and migrations — not about _your_ checkout flow, payment adapters or permission checks. Add your own with `--sensitive-path`; matching files are flagged HIGH under Rule E, alongside every built-in pattern.
+The built-in Rule E patterns know about `auth/`, `crypto/`, keys and migrations — not about _your_ checkout flow, payment adapters or permission checks. Add your own with `--sensitive-path`, or commit them in [`.riskannotate.json`](#repository-configuration-riskannotatejson); matching files are flagged HIGH under Rule E, alongside every built-in pattern.
 
 ```bash
 risk-annotate --sensitive-path 'src/payments/**' --sensitive-path '**/webhooks/*.ts'
@@ -211,7 +213,7 @@ The annotations point at where to look; they don't say the coupon logic is wrong
 - Patterns are **repository-relative** and **case-sensitive**, like git's own paths. A leading `./` is ignored, and Windows-style `\` separators are converted to `/`.
 - Both the old and new path of a renamed file are checked, so moving a file out of a sensitive directory is still flagged.
 - When a file matches a built-in pattern and a custom one, the more specific built-in reason is shown. Among custom patterns, the first in sorted order is named, so the order of your flags never changes the output.
-- Duplicates are removed. Up to 100 patterns of up to 256 characters each are accepted.
+- Duplicates are removed. Up to 100 unique patterns (flags and config file combined) of up to 256 characters each are accepted.
 - Rejected with exit code `1` and a message naming the pattern: absolute paths (`/x`, `C:\x`), `..` or `.` segments, `**` inside a segment (`a**b`), brackets and braces (`[ab]`, `{a,b}` — repeat the flag instead), negation (`!x`), backticks, control characters, and empty or whitespace-padded patterns.
 
 ### Limitations and security notes
@@ -219,7 +221,97 @@ The annotations point at where to look; they don't say the coupon logic is wrong
 - **Path-based only.** A pattern says _where_ risk lives; it can't see what the code does. A risky change outside your patterns, or a harmless one inside them, is reported accordingly. This is not a security scan and does not guarantee that vulnerabilities are found.
 - **Patterns never leave the process.** They are compared against path strings from `git diff`; they are not passed to git, a shell or the filesystem, so they cannot read files, escape the repository or run commands.
 - **Bounded matching.** The matcher uses no regular expressions; its work is bounded by pattern length × path length, so adversarial patterns cannot cause catastrophic backtracking (ReDoS). There's a regression test for this.
-- **Nothing is persisted or sent anywhere.** The pattern list isn't stored as its own field in JSON or SARIF; only the annotation's reason names the pattern that matched, so those formats are unchanged in shape. To reuse a set of patterns, keep them in a script or CI step for now — a config file is on the [roadmap](#roadmap).
+- **Nothing is persisted or sent anywhere.** The pattern list isn't stored as its own field in JSON or SARIF; only the annotation's reason names the pattern that matched, so those formats are unchanged in shape. To reuse a set of patterns, commit them in [`.riskannotate.json`](#repository-configuration-riskannotatejson).
+
+### Repository configuration: `.riskannotate.json`
+
+Commit the patterns once and everyone — teammates, CI, the Claude Code command — gets the same annotations without remembering any flags:
+
+```json
+{
+  "version": 1,
+  "sensitivePaths": ["src/payments/**", "src/checkout/**", "**/webhooks/*.ts"]
+}
+```
+
+- **Discovery.** risk-annotate reads `.riskannotate.json` from the root of the git repository (`git rev-parse --show-toplevel`), so it is found whether you run from the root, a nested directory, or with `--cwd`. Files of the same name in subdirectories or parent directories are ignored. It is a plain read of the working-tree file: it doesn't have to be committed, and it is not read from the `--head` or `--base` revision.
+- **No file, no change.** Without a config, behavior and output are exactly as before. `{ "version": 1 }` and an empty `sensitivePaths` list are also no-ops.
+- **Schema (version 1).** `version` is required and must be `1`. `sensitivePaths` is an optional array of strings using the [same syntax and validation](#syntax) as `--sensitive-path`. Any other property is an error. There are no comments, includes, variables or environment-variable expansion.
+- **Combined with flags.** Config patterns and `--sensitive-path` flags are merged into one list, normalized, deduplicated and sorted, so neither source takes precedence and the order of entries never changes the output. Flags can only add patterns; nothing removes a config entry or a built-in pattern for one run. At most 100 unique patterns are allowed across both sources.
+- **Additive only.** The file can add sensitive paths and nothing else: it cannot suppress findings, change levels or disable rules. Built-in Rule E patterns keep their more specific reasons.
+- **Same output as flags.** A config is byte-for-byte equivalent to passing the same patterns as flags, in Markdown, JSON and SARIF. The JSON schema and SARIF rules are unchanged.
+- **Fails closed.** A config that is malformed JSON, not valid UTF-8, has an unknown property, an unsupported `version`, a non-string or invalid pattern, more than 100 unique patterns, or is larger than 32 KiB is an error: exit code `1`, a message on stderr naming the problem (and the array index for patterns), and no report. It is never silently ignored.
+
+```text
+$ risk-annotate
+risk-annotate: .riskannotate.json sensitivePaths[1] "../shared/**": ".." segments are not allowed; patterns match paths inside the repository
+```
+
+#### Example: a synthetic e-commerce shop
+
+An agent's "add coupon support" commit zeroes the order total whenever a coupon is present, drops the idempotency key from a payment call, makes a webhook signature check always pass, and changes a catalog sort order. None of these paths match a built-in pattern, so without configuration:
+
+```text
+$ risk-annotate
+No risk signals found.
+```
+
+With the `.riskannotate.json` above at the repository root, the same commit (real output):
+
+```text
+$ risk-annotate
+# Risk annotations
+
+`HEAD~1..HEAD` · 3 files · 3 HIGH · 0 MED · 0 LOW
+
+## `api/webhooks/stripe.ts`
+
+- L2-2: [HIGH] Matches project sensitive path `**/webhooks/*.ts`; review with extra care (path heuristic)
+
+## `src/checkout/total.ts`
+
+- L3-3: [HIGH] Matches project sensitive path `src/checkout/**`; review with extra care (path heuristic)
+
+## `src/payments/charge.ts`
+
+- L2-2: [HIGH] Matches project sensitive path `src/payments/**`; review with extra care (path heuristic)
+```
+
+The catalog change isn't flagged, and nothing here says the coupon, payment or webhook code is wrong — the annotations say where a reviewer should look first. A one-off extra path still works as a flag and is added on top: `risk-annotate --sensitive-path 'src/catalog/**'`.
+
+#### Team usage
+
+1. Commit `.riskannotate.json` at the root of the repository you review.
+2. Treat it like other review policy: list it in `CODEOWNERS` so changes to it need a lead or security reviewer.
+3. Everyone runs plain `risk-annotate`, `/risk-annotate` in Claude Code, or the GitHub Action — all pick it up automatically.
+
+#### In CI
+
+The [GitHub Action](#github-action) needs no new inputs; it reads `.riskannotate.json` from the checkout. Because the file comes from the checked-out working tree, a pull request can edit it. To judge every PR by the configuration on its base branch instead, restore that copy before running:
+
+```yaml
+- uses: actions/checkout@v7
+  with:
+    fetch-depth: 0
+- name: Use the base branch's risk configuration
+  if: github.event_name == 'pull_request'
+  env:
+    BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  run: git checkout "$BASE_SHA" -- .riskannotate.json 2>/dev/null || rm -f .riskannotate.json
+- uses: jigar48/agent-risk-annotator@v0
+  with:
+    fail-on: high
+```
+
+#### Security notes for the config file
+
+- **Bounded input.** At most 32 KiB, 100 unique patterns and 256 characters per pattern. Patterns go through the same regex-free matcher as flags, so a hostile config cannot cause catastrophic backtracking (ReDoS).
+- **One fixed location, no traversal.** Only `<repo root>/.riskannotate.json` is opened. Patterns are compared against path strings from `git diff` and never touch the filesystem; absolute paths and `..` segments are rejected.
+- **No symlinks.** A symlinked `.riskannotate.json` is rejected, even one pointing at a valid file, so the config cannot be redirected to a file elsewhere on the machine. On Linux and macOS the open also uses `O_NOFOLLOW`. Directories and other non-regular files are rejected too.
+- **Data only.** The file is parsed with `JSON.parse`: no code is evaluated, no shell runs, no environment variables are expanded, nothing is fetched over the network and no other files are included. Unknown keys, including `__proto__` and `constructor`, are rejected, and the parsed object is never merged into anything.
+- **Safe error messages.** Control characters and Unicode bidirectional overrides from the file are escaped in error messages and rejected inside patterns, so a malicious config cannot spoof terminal output or disguise a pattern in a report.
+- **A pull request can change it.** The config comes from the working tree under review, so a branch can add, remove or loosen patterns in the same change. Use `CODEOWNERS` and/or the base-branch step above if that matters for your repository.
+- **Case-insensitive filesystems** (the default on Windows and macOS) may also open a file named, for example, `.RiskAnnotate.json`. Patterns themselves are always case-sensitive, like git paths.
 
 ## Coverage
 
@@ -238,11 +330,11 @@ Or pass `--coverage <path>`. An explicit path that is missing or unreadable is a
 
 ## Exit codes
 
-| Code | Meaning                                                                                          |
-| ---- | ------------------------------------------------------------------------------------------------ |
-| `0`  | Success (with or without annotations)                                                            |
-| `1`  | Error: bad flag, unknown revision, not a git repository, missing or unreadable `--coverage` file |
-| `2`  | `--fail-on` threshold reached. The report is still printed                                       |
+| Code | Meaning                                                                                                                        |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `0`  | Success (with or without annotations)                                                                                          |
+| `1`  | Error: bad flag, unknown revision, not a git repository, missing or unreadable `--coverage` file, invalid `.riskannotate.json` |
+| `2`  | `--fail-on` threshold reached. The report is still printed                                                                     |
 
 ## JSON and SARIF
 
@@ -292,6 +384,8 @@ steps:
 | `version`      | `latest`                   | npm version of `risk-annotate` to run                                |
 | `cli`          | —                          | Path to a local build to run instead of npm (for testing the action) |
 
+A `.riskannotate.json` in the checkout is picked up automatically (see [In CI](#in-ci) to pin it to the PR's base branch).
+
 Outputs: `exit-code` (`0` or `2`) and `report` (path to the Markdown report). The action only installs Node if the runner lacks Node 20+, and it fails as its last step so the summary and SARIF are published even when the threshold is hit.
 
 ## Claude Code plugin
@@ -308,7 +402,8 @@ Annotations tell you **where to look**, never what is wrong. An empty result mea
 
 ## Roadmap
 
-- **v1.1 — `.riskannotate.yml`.** Per-repo configuration: persisted `--sensitive-path` patterns, per-rule level overrides, ignore globs, and history-window sizes. Today everything is flags-only.
+- **Shipped (unreleased) — `.riskannotate.json` version 1.** A deliberately narrow first slice: persisted `sensitivePaths` only, additive and strictly validated.
+- **Broader configuration (future, not committed to).** Candidates for a later config version: per-rule level overrides, ignore globs, history-window sizes, a coverage path, and a YAML form. Anything that could hide or downgrade a signal needs careful design (for example, staying visible in the report), so none of it is in version 1.
 - **Opt-in LLM pass.** The rule engine has a marked `// EXTENSION POINT: llm-pass` where an optional model pass could add signals with its own evidence source. It will never remove or reorder heuristic signals, and it will stay off by default so the local, deterministic core is unchanged.
 - More manifest ecosystems for rules D and H (Pipfile, Gemfile, Gradle, Maven).
 

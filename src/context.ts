@@ -1,3 +1,4 @@
+import { loadConfig } from './config.js';
 import { loadCoverage, type CoverageReport } from './coverage/index.js';
 import { parseDiff, type FileChange } from './diff/parse.js';
 import {
@@ -15,6 +16,7 @@ import {
   type CommitInfo,
   type DiffRange,
 } from './git.js';
+import { combineSensitivePaths } from './sensitive-paths.js';
 
 /** How far back history-based rules look (Rule A: last 30 commits). */
 export const HISTORY_DEPTH = 30;
@@ -24,7 +26,10 @@ export interface ContextOptions {
   base?: string;
   head?: string;
   coveragePath?: string;
-  /** Extra Rule E patterns, already validated by normalizeSensitivePaths. */
+  /**
+   * Extra Rule E patterns from `--sensitive-path`, already validated by
+   * normalizeSensitivePaths. Combined with `.riskannotate.json` at the repository root.
+   */
   sensitivePaths?: readonly string[];
 }
 
@@ -39,7 +44,10 @@ export interface RepoContext {
   history: CommitInfo[];
   coverage: CoverageReport | null;
   warnings: string[];
-  /** Project-specific sensitive-path globs from `--sensitive-path`, normalized and sorted. */
+  /**
+   * Project-specific sensitive-path globs: `--sensitive-path` flags plus `.riskannotate.json`,
+   * normalized, deduped and sorted.
+   */
   sensitivePaths: readonly string[];
   /** File content before / after the change; null when absent on that side. Cached. */
   readFile(side: 'base' | 'head', path: string): string | null;
@@ -63,6 +71,12 @@ export const AUTHOR_SAMPLE = 10;
 export function buildContext(opts: ContextOptions): RepoContext {
   assertRepo(opts.cwd);
   const root = getToplevel(opts.cwd);
+  // Read before any other work so a broken config fails fast and closed.
+  const config = loadConfig(root);
+  const sensitivePaths = combineSensitivePaths(
+    opts.sensitivePaths ?? [],
+    config?.sensitivePaths ?? [],
+  );
   const range = resolveRange({ base: opts.base, head: opts.head }, root);
   const files = parseDiff(getDiff(range, root));
 
@@ -83,7 +97,7 @@ export function buildContext(opts: ContextOptions): RepoContext {
     history,
     coverage: report,
     warnings,
-    sensitivePaths: opts.sensitivePaths ?? [],
+    sensitivePaths,
     readFile(side, path) {
       const rev = side === 'head' ? range.head : baseRev;
       if (rev === null) return null;

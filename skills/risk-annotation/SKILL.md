@@ -33,7 +33,7 @@ Prefer `risk-annotate` on PATH; fall back to `npx -y risk-annotate@latest`.
 | With a coverage report not in a default spot | `risk-annotate --coverage path/to/lcov.info`     |
 | Machine-readable                             | `risk-annotate --format json`                    |
 
-Coverage is picked up automatically from `coverage/coverage-final.json`, `coverage/lcov.info`, `lcov.info` or `coverage.json`. Exit code `1` means an error (message on stderr); `2` only happens with `--fail-on`.
+Project-specific sensitive paths in `.riskannotate.json` at the repository root are picked up automatically, so plain `risk-annotate` is usually right; don't invent `--sensitive-path` flags. Coverage is picked up automatically from `coverage/coverage-final.json`, `coverage/lcov.info`, `lcov.info` or `coverage.json`. Exit code `1` means an error (message on stderr); `2` only happens with `--fail-on`.
 
 ## How to read the output
 
