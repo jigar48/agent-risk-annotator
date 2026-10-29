@@ -23,6 +23,12 @@ All notable changes to this project are documented here. The format follows
   patterns (still one signal per file). The SARIF rule description for `RA-E` mentions
   review policy. Report formats, exit codes and CLI flags are unchanged.
 
+### Security
+
+- Upgraded the dev-only test runner from vitest 2 to 4.1.12, which clears all six
+  `npm audit` advisories in the test toolchain (vitest, vite, esbuild, tinypool). Node 20
+  remains supported. No runtime dependencies were affected; the published package has none.
+
 ## [0.3.0] - 2026-10-26
 
 ### Added
