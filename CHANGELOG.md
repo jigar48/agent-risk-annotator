@@ -6,6 +6,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Rule E flags changes to repository review-policy files HIGH: `.riskannotate.json`,
+  `CODEOWNERS`, `.github/CODEOWNERS` and `docs/CODEOWNERS` (exact paths only; nested files
+  such as `src/CODEOWNERS` are ignored). Additions, edits, deletions, mode-only changes,
+  copies onto these paths and renames in either direction are flagged, with one signal per
+  file naming the path and what happened. The list is built in and independent of
+  `--sensitive-path` / `sensitivePaths`, so a change that empties its own config is still
+  flagged. File contents are never read. This is a review signal, not enforcement of
+  `CODEOWNERS` or branch protection.
+
+### Changed
+
+- Rule E precedence is now: built-in categories, then review-policy files, then project
+  patterns (still one signal per file). The SARIF rule description for `RA-E` mentions
+  review policy. Report formats, exit codes and CLI flags are unchanged.
+
 ## [0.3.0] - 2026-10-26
 
 ### Added

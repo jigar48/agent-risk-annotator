@@ -39,4 +39,4 @@ Then list the `[MED]` and `[LOW]` items in one short line each, without opening 
 
 - The annotations say **where to look**, not whether the code is wrong. Never call a change safe or unsafe based on the annotation alone.
 - Do not edit any files unless I ask.
-- Evidence sources mean: `git log` = the file was in a recent fix/revert commit; `coverage report` = changed lines no test runs; `commit size` = much larger than this author's usual commit; `dependency manifest` = new dependency or lockfile drift; `path heuristic` = sensitive path, deleted test lines, or CI/infra file.
+- Evidence sources mean: `git log` = the file was in a recent fix/revert commit; `coverage report` = changed lines no test runs; `commit size` = much larger than this author's usual commit; `dependency manifest` = new dependency or lockfile drift; `path heuristic` = sensitive path, review-policy file (`CODEOWNERS`, `.riskannotate.json`), deleted test lines, or CI/infra file.

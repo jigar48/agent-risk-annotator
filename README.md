@@ -130,16 +130,16 @@ A few edge cases:
 
 ## Rules
 
-| Rule                 | Detects                                                                                                                                                                               | Level | Evidence              |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------------------- |
-| **A** Fix-prone file | The file appears in a commit whose subject matches `/fix\|hotfix\|revert\|incident\|bug/i` within the 30 commits before the change                                                    | HIGH  | `git log`             |
-| **B** Uncovered code | Changed lines inside a file or function with 0% coverage. Silent without a coverage report                                                                                            | MED   | `coverage report`     |
-| **C** Outsized diff  | Total diff lines > 3× the median of the head author's last 10 commits before the change (matched by email). Reported once, on the largest hunk. Needs ≥ 3 prior commits               | LOW   | `commit size`         |
-| **D** New dependency | A new direct dependency in `package.json`, `composer.json`, `requirements*.txt`, `pyproject.toml`, `Cargo.toml` or `go.mod`; names the dependency                                     | MED   | `dependency manifest` |
-| **E** Sensitive path | `**/auth/**`, `**/crypto/**`, `**/secrets/**`, `*.pem`, `*.key`, `.env*`, `**/migrations/**`, plus project patterns from `--sensitive-path` or `.riskannotate.json` (old or new path) | HIGH  | `path heuristic`      |
-| **F** Deleted tests  | Any hunk that removes lines from `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.go`                                                                                                     | HIGH  | `path heuristic`      |
-| **G** CI/infra       | `.github/workflows/**`, `Dockerfile*`, `docker-compose*`, `**/terraform/**`, `**/k8s/**`                                                                                              | MED   | `path heuristic`      |
-| **H** Lockfile drift | A lockfile changed with no change to its manifest, or a manifest's dependencies changed while its lockfile didn't (npm/yarn/pnpm/bun, composer, poetry/uv, cargo, go)                 | MED   | `dependency manifest` |
+| Rule                 | Detects                                                                                                                                                                                                                                                                                                          | Level | Evidence              |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | --------------------- |
+| **A** Fix-prone file | The file appears in a commit whose subject matches `/fix\|hotfix\|revert\|incident\|bug/i` within the 30 commits before the change                                                                                                                                                                               | HIGH  | `git log`             |
+| **B** Uncovered code | Changed lines inside a file or function with 0% coverage. Silent without a coverage report                                                                                                                                                                                                                       | MED   | `coverage report`     |
+| **C** Outsized diff  | Total diff lines > 3× the median of the head author's last 10 commits before the change (matched by email). Reported once, on the largest hunk. Needs ≥ 3 prior commits                                                                                                                                          | LOW   | `commit size`         |
+| **D** New dependency | A new direct dependency in `package.json`, `composer.json`, `requirements*.txt`, `pyproject.toml`, `Cargo.toml` or `go.mod`; names the dependency                                                                                                                                                                | MED   | `dependency manifest` |
+| **E** Sensitive path | `**/auth/**`, `**/crypto/**`, `**/secrets/**`, `*.pem`, `*.key`, `.env*`, `**/migrations/**`, [review-policy files](#review-policy-files) (`.riskannotate.json`, `CODEOWNERS`, `.github/CODEOWNERS`, `docs/CODEOWNERS`), plus project patterns from `--sensitive-path` or `.riskannotate.json` (old or new path) | HIGH  | `path heuristic`      |
+| **F** Deleted tests  | Any hunk that removes lines from `*.test.*`, `*.spec.*`, `test_*.py`, `*_test.go`                                                                                                                                                                                                                                | HIGH  | `path heuristic`      |
+| **G** CI/infra       | `.github/workflows/**`, `Dockerfile*`, `docker-compose*`, `**/terraform/**`, `**/k8s/**`                                                                                                                                                                                                                         | MED   | `path heuristic`      |
+| **H** Lockfile drift | A lockfile changed with no change to its manifest, or a manifest's dependencies changed while its lockfile didn't (npm/yarn/pnpm/bun, composer, poetry/uv, cargo, go)                                                                                                                                            | MED   | `dependency manifest` |
 
 Notes on behaviour:
 
@@ -148,6 +148,65 @@ Notes on behaviour:
 - **Rule F flags edits, not just removals.** Rewriting an assertion removes a line, so it is flagged; the reason says "Rewrites" rather than "Removes".
 - **Rule H is workspace-aware.** A root `pnpm-lock.yaml` is explained by a change to any nested `package.json`, and a nested manifest is covered by the nearest lockfile above it. Manifest edits that don't touch dependencies (scripts, metadata) are ignored, as are projects with no lockfile.
 - **Unparseable manifests and ambiguous coverage paths make rules stay silent** rather than guess.
+- **Rule E reports at most one signal per file.** The first match wins, in this order: the built-in categories above, then [review-policy files](#review-policy-files), then project patterns.
+
+## Review-policy files
+
+Some files decide _how a change gets reviewed_ rather than what the code does. Rule E always flags a change to these exact repository paths as HIGH:
+
+| Path                 | Why it matters                                            |
+| -------------------- | --------------------------------------------------------- |
+| `.riskannotate.json` | Which paths this tool treats as sensitive                 |
+| `CODEOWNERS`         | Who GitHub requests (or requires) as reviewers for a path |
+| `.github/CODEOWNERS` | Same; the first location GitHub looks in                  |
+| `docs/CODEOWNERS`    | Same; the last location GitHub looks in                   |
+
+- **Every kind of change counts:** additions, edits, deletions, mode-only changes, renames onto one of these paths, and renames _away_ from one (the old path is checked). A copy onto one of these paths is flagged too; git reports it as an addition. The copy's source is unchanged, so it isn't flagged.
+- **Exact paths only.** `src/CODEOWNERS`, `docs/team/CODEOWNERS`, `packages/web/.riskannotate.json` or `CODEOWNERS.md` are not review-policy files and are ignored. Matching is case-sensitive, like git paths.
+- **Built in and fixed.** The list doesn't come from `--sensitive-path` or `sensitivePaths`, and nothing in `.riskannotate.json` can remove it — a branch that empties its own config still has that edit flagged.
+- **One signal per file**, with a reason that names the path and what happened (`added`, `changed`, `deleted`, `renamed`, `renamed away`, `copied`). The contents are never read or interpreted.
+
+### Example: a synthetic before/after
+
+A repository requires a payments lead to review `src/payments/`, and its `.riskannotate.json` marks the same directory as sensitive. A commit titled `chore: tidy review config` changes both:
+
+```diff
+--- a/.github/CODEOWNERS
++++ b/.github/CODEOWNERS
+@@ -1,2 +1 @@
+ * @acme/maintainers
+-/src/payments/ @acme/payments-leads
+--- a/.riskannotate.json
++++ b/.riskannotate.json
+@@ -1,4 +1,4 @@
+ {
+   "version": 1,
+-  "sensitivePaths": ["src/payments/**"]
++  "sensitivePaths": []
+ }
+```
+
+Before this rule, the report for that commit was `No risk signals found.` Now:
+
+```markdown
+# Risk annotations
+
+`HEAD~1..HEAD` · 2 files · 2 HIGH · 0 MED · 0 LOW
+
+## `.github/CODEOWNERS`
+
+- L1-1: [HIGH] Review-policy file `.github/CODEOWNERS` changed; confirm code-owner review requirements still match intent (path heuristic)
+
+## `.riskannotate.json`
+
+- L3-3: [HIGH] Review-policy file `.riskannotate.json` changed; confirm sensitive-path coverage still matches intent (path heuristic)
+```
+
+With `--fail-on high` the run exits `2`. Nothing here says the change is wrong — a tidy-up may be exactly what was intended. The annotations say a human should confirm it.
+
+### A review signal, not enforcement
+
+`risk-annotate` doesn't enforce `CODEOWNERS`, branch protection or rulesets, and it doesn't check whether the right people approved. It only tells the reviewer that review policy changed in this diff. Enforcement belongs to your Git host: require code-owner review, protect the default branch, and list `CODEOWNERS` and `.riskannotate.json` themselves in `CODEOWNERS`. Other review-policy locations (for example GitLab's `.gitlab/CODEOWNERS`, rulesets stored outside the repository, or workflow files — those are Rule G) aren't covered here; add them with [`--sensitive-path`](#project-specific-sensitive-paths) if you need them.
 
 ## Project-specific sensitive paths
 
@@ -282,7 +341,7 @@ The catalog change isn't flagged, and nothing here says the coupon, payment or w
 #### Team usage
 
 1. Commit `.riskannotate.json` at the root of the repository you review.
-2. Treat it like other review policy: list it in `CODEOWNERS` so changes to it need a lead or security reviewer.
+2. Treat it like other review policy: list it in `CODEOWNERS` so changes to it need a lead or security reviewer. Rule E also flags any change to the file itself HIGH (see [Review-policy files](#review-policy-files)).
 3. Everyone runs plain `risk-annotate`, `/risk-annotate` in Claude Code, or the GitHub Action — all pick it up automatically.
 
 #### In CI
@@ -310,7 +369,7 @@ The [GitHub Action](#github-action) needs no new inputs; it reads `.riskannotate
 - **No symlinks.** A symlinked `.riskannotate.json` is rejected, even one pointing at a valid file, so the config cannot be redirected to a file elsewhere on the machine. On Linux and macOS the open also uses `O_NOFOLLOW`. Directories and other non-regular files are rejected too.
 - **Data only.** The file is parsed with `JSON.parse`: no code is evaluated, no shell runs, no environment variables are expanded, nothing is fetched over the network and no other files are included. Unknown keys, including `__proto__` and `constructor`, are rejected, and the parsed object is never merged into anything.
 - **Safe error messages.** Control characters and Unicode bidirectional overrides from the file are escaped in error messages and rejected inside patterns, so a malicious config cannot spoof terminal output or disguise a pattern in a report.
-- **A pull request can change it.** The config comes from the working tree under review, so a branch can add, remove or loosen patterns in the same change. Use `CODEOWNERS` and/or the base-branch step above if that matters for your repository.
+- **A pull request can change it.** The config comes from the working tree under review, so a branch can add, remove or loosen patterns in the same change. Such an edit is always flagged HIGH as a [review-policy file](#review-policy-files) change, but the loosened patterns still apply to that run. Use `CODEOWNERS` and/or the base-branch step above if that matters for your repository.
 - **Case-insensitive filesystems** (the default on Windows and macOS) may also open a file named, for example, `.RiskAnnotate.json`. Patterns themselves are always case-sensitive, like git paths.
 
 ## Coverage

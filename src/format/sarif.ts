@@ -18,7 +18,7 @@ const DESCRIPTIONS: Record<RuleId, { text: string; level: Level }> = {
   C: { text: "Diff is over 3x the author's median commit size.", level: 'LOW' },
   D: { text: 'Adds a new direct dependency to a manifest.', level: 'MED' },
   E: {
-    text: 'Touches a sensitive path (auth, crypto, secrets, keys, env, migrations).',
+    text: 'Touches a sensitive path (auth, crypto, secrets, keys, env, migrations, review policy).',
     level: 'HIGH',
   },
   F: { text: 'Removes lines from a test file.', level: 'HIGH' },

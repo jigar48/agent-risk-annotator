@@ -72,7 +72,7 @@
                 "text": "Sensitive path"
               },
               "fullDescription": {
-                "text": "Touches a sensitive path (auth, crypto, secrets, keys, env, migrations)."
+                "text": "Touches a sensitive path (auth, crypto, secrets, keys, env, migrations, review policy)."
               },
               "defaultConfiguration": {
                 "level": "error"
