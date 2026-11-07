@@ -360,8 +360,8 @@ Because the file normally comes from the checked-out working tree, a pull reques
   if: github.event_name == 'pull_request'
   env:
     BASE_SHA: ${{ github.event.pull_request.base.sha }}
-  # Needs a risk-annotate release that includes --config-ref (unreleased at the time of writing).
-  run: npx -y risk-annotate --base "$BASE_SHA" --config-ref "$BASE_SHA" --fail-on high
+  # --config-ref needs risk-annotate 0.5.0 or later.
+  run: npx -y risk-annotate@0.5.0 --base "$BASE_SHA" --config-ref "$BASE_SHA" --fail-on high
 ```
 
 `BASE_SHA` goes through `env`, never interpolated into the script. The [GitHub Action](#github-action) has no `config-ref` input yet; with the action, restore the base copy of the file before running it:
@@ -504,7 +504,7 @@ Annotations tell you **where to look**, never what is wrong. An empty result mea
 
 - **Shipped in 0.3.0 — `.riskannotate.json` version 1.** A deliberately narrow first slice: persisted `sensitivePaths` only, additive and strictly validated.
 - **Shipped in 0.4.0 — review-policy files.** Changes to `.riskannotate.json` and `CODEOWNERS` are flagged HIGH, plus a [Magento 2 PR gate example](examples/magento2-pr-gate/).
-- **Unreleased: `--config-ref`.** Read `.riskannotate.json` from a trusted commit instead of the working tree, failing closed. A `config-ref` input for the GitHub Action is a possible follow-up.
+- **Shipped in 0.5.0: `--config-ref`.** Read `.riskannotate.json` from a trusted commit instead of the working tree, failing closed. A `config-ref` input for the GitHub Action is a possible follow-up.
 - **Broader configuration (future, not committed to).** Candidates for a later config version: per-rule level overrides, ignore globs, history-window sizes, a coverage path, and a YAML form. Anything that could hide or downgrade a signal needs careful design (for example, staying visible in the report), so none of it is in version 1.
 - **Opt-in LLM pass.** The rule engine has a marked `// EXTENSION POINT: llm-pass` where an optional model pass could add signals with its own evidence source. It will never remove or reorder heuristic signals, and it will stay off by default so the local, deterministic core is unchanged.
 - More manifest ecosystems for rules D and H (Pipfile, Gemfile, Gradle, Maven).
