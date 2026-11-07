@@ -93,17 +93,18 @@ risk-annotate --sensitive-path 'src/payments/**'   # also flag your own risky pa
 
 Commit a [`.riskannotate.json`](#repository-configuration-riskannotatejson) to share those paths with your team instead of repeating the flag.
 
-| Flag                      | Default     | Meaning                                                                                                                      |
-| ------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `--base <ref>`            | —           | Compare `<base>...<head>` (from the merge base). Without it: `<head>~1..<head>`                                              |
-| `--head <ref>`            | `HEAD`      | Revision under review                                                                                                        |
-| `--format <fmt>`          | `markdown`  | `markdown`, `json` or `sarif`                                                                                                |
-| `--fail-on <level>`       | —           | Exit `2` if any annotation is at or above `high`, `med` or `low`                                                             |
-| `--coverage <path>`       | auto-detect | Coverage file to use (see [Coverage](#coverage))                                                                             |
-| `--sensitive-path <glob>` | —           | Extra path to flag HIGH under Rule E. Repeatable (see [Project-specific sensitive paths](#project-specific-sensitive-paths)) |
-| `--cwd <dir>`             | `.`         | Run against the repository containing `<dir>`                                                                                |
-| `-v`, `--version`         |             | Print the version                                                                                                            |
-| `-h`, `--help`            |             | Print help                                                                                                                   |
+| Flag                      | Default     | Meaning                                                                                                                                   |
+| ------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `--base <ref>`            | —           | Compare `<base>...<head>` (from the merge base). Without it: `<head>~1..<head>`                                                           |
+| `--head <ref>`            | `HEAD`      | Revision under review                                                                                                                     |
+| `--format <fmt>`          | `markdown`  | `markdown`, `json` or `sarif`                                                                                                             |
+| `--fail-on <level>`       | —           | Exit `2` if any annotation is at or above `high`, `med` or `low`                                                                          |
+| `--coverage <path>`       | auto-detect | Coverage file to use (see [Coverage](#coverage))                                                                                          |
+| `--sensitive-path <glob>` | —           | Extra path to flag HIGH under Rule E. Repeatable (see [Project-specific sensitive paths](#project-specific-sensitive-paths))              |
+| `--config-ref <commit>`   | —           | Read `.riskannotate.json` from this commit instead of the working tree (see [Trusted configuration](#trusted-configuration---config-ref)) |
+| `--cwd <dir>`             | `.`         | Run against the repository containing `<dir>`                                                                                             |
+| `-v`, `--version`         |             | Print the version                                                                                                                         |
+| `-h`, `--help`            |             | Print help                                                                                                                                |
 
 On a repository's very first commit there is no `HEAD~1`; the whole commit is compared against git's empty tree.
 
@@ -295,7 +296,7 @@ Commit the patterns once and everyone — teammates, CI, the Claude Code command
 }
 ```
 
-- **Discovery.** risk-annotate reads `.riskannotate.json` from the root of the git repository (`git rev-parse --show-toplevel`), so it is found whether you run from the root, a nested directory, or with `--cwd`. Files of the same name in subdirectories or parent directories are ignored. It is a plain read of the working-tree file: it doesn't have to be committed, and it is not read from the `--head` or `--base` revision.
+- **Discovery.** risk-annotate reads `.riskannotate.json` from the root of the git repository (`git rev-parse --show-toplevel`), so it is found whether you run from the root, a nested directory, or with `--cwd`. Files of the same name in subdirectories or parent directories are ignored. It is a plain read of the working-tree file: it doesn't have to be committed, and it is not read from the `--head` or `--base` revision. To read it from a specific commit instead, use [`--config-ref`](#trusted-configuration---config-ref).
 - **No file, no change.** Without a config, behavior and output are exactly as before. `{ "version": 1 }` and an empty `sensitivePaths` list are also no-ops.
 - **Schema (version 1).** `version` is required and must be `1`. `sensitivePaths` is an optional array of strings using the [same syntax and validation](#syntax) as `--sensitive-path`. Any other property is an error. There are no comments, includes, variables or environment-variable expansion.
 - **Combined with flags.** Config patterns and `--sensitive-path` flags are merged into one list, normalized, deduplicated and sorted, so neither source takes precedence and the order of entries never changes the output. Flags can only add patterns; nothing removes a config entry or a built-in pattern for one run. At most 100 unique patterns are allowed across both sources.
@@ -348,12 +349,24 @@ The catalog change isn't flagged, and nothing here says the coupon, payment or w
 
 #### In CI
 
-The [GitHub Action](#github-action) needs no new inputs; it reads `.riskannotate.json` from the checkout. Because the file comes from the checked-out working tree, a pull request can edit it. To judge every PR by the configuration on its base branch instead, restore that copy before running:
+Because the file normally comes from the checked-out working tree, a pull request can edit it. To judge every PR by the configuration on its base commit instead, pass that commit to [`--config-ref`](#trusted-configuration---config-ref):
 
 ```yaml
 - uses: actions/checkout@v7
   with:
-    fetch-depth: 0
+    fetch-depth: 0 # the base commit must be present locally
+    persist-credentials: false
+- name: Risk annotations (trusted base config)
+  if: github.event_name == 'pull_request'
+  env:
+    BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  # --config-ref needs risk-annotate 0.5.0 or later.
+  run: npx -y risk-annotate@0.5.0 --base "$BASE_SHA" --config-ref "$BASE_SHA" --fail-on high
+```
+
+`BASE_SHA` goes through `env`, never interpolated into the script. The [GitHub Action](#github-action) has no `config-ref` input yet; with the action, restore the base copy of the file before running it:
+
+```yaml
 - name: Use the base branch's risk configuration
   if: github.event_name == 'pull_request'
   env:
@@ -366,6 +379,28 @@ The [GitHub Action](#github-action) needs no new inputs; it reads `.riskannotate
 
 This short form falls back to no config on any error. For a fail-closed version (it stops on unexpected git errors and rejects a symlinked base config), see the workflow in [`examples/magento2-pr-gate/`](examples/magento2-pr-gate/#how-the-workflow-works); its base-config step is not Magento-specific.
 
+#### Trusted configuration: `--config-ref`
+
+`--config-ref <commit-ish>` reads `.riskannotate.json` from the root tree of one commit and ignores the working tree completely:
+
+```text
+$ risk-annotate --base "$BASE_SHA" --config-ref "$BASE_SHA" --fail-on high
+```
+
+- **Without the flag nothing changes.** The working-tree file is read exactly as before.
+- **One source, no fallback, no merge.** With the flag, the working-tree `.riskannotate.json` is never opened, not even to check it, so a PR can't replace, loosen, break or add to the trusted configuration. `--sensitive-path` flags are still added on top, since they come from whoever runs the command.
+- **`--base` and `--config-ref` are independent.** `--base` chooses the diff; `--config-ref` chooses which configuration is trusted. They are usually the same commit in CI, but neither implies the other, and `--config-ref` without `--base` keeps the default `HEAD~1..HEAD` range.
+- **Any commit-ish.** A full or short SHA, branch, tag (annotated tags are peeled) or expression like `HEAD~1`. It must resolve to a commit; a tree or blob id is rejected.
+- **Same parser, same output.** The committed bytes go through the same strict validation as the working-tree file, and the report is byte-for-byte what the same patterns would produce from the working tree or from flags, in Markdown, JSON and SARIF. Built-in Rule E protections, including the [review-policy signal](#review-policy-files) on a changed `.riskannotate.json`, are unaffected.
+- **Fails closed** with exit code `1` and no report when the ref is unknown or not fetched (for example in a shallow clone), names a tree or blob, starts with `-`, contains whitespace or control characters, or is longer than 256 characters; when the commit has no `.riskannotate.json` at its root (an exact, case-sensitive name); when that entry is a symlink, directory or submodule; when the blob is larger than 32 KiB (checked before it is read) or missing from the object store; and when its content is invalid. A missing file is an error here, unlike without the flag: you asked for a specific configuration, so there is no safe default to fall back to.
+
+```text
+$ risk-annotate --config-ref main
+risk-annotate: .riskannotate.json: not found at the repository root in --config-ref "main" (3f2c9a1b7d4e); --config-ref requires the file to exist there
+```
+
+**The flag does not establish trust.** It reads whatever commit you name. In CI, supply a commit the pull request cannot control: the base SHA from your CI platform's event data (`github.event.pull_request.base.sha` on GitHub Actions), or a protected branch you fetched yourself. Pass the full SHA, not a short one or a message search such as `:/fix`, and never a ref or SHA taken from the PR's branch, commit messages or files. A [before/after demo](examples/config-ref-demo/) shows a PR that removes `src/payments/**` from its own config and changes a payment file in the same commit.
+
 #### Security notes for the config file
 
 - **Bounded input.** At most 32 KiB, 100 unique patterns and 256 characters per pattern. Patterns go through the same regex-free matcher as flags, so a hostile config cannot cause catastrophic backtracking (ReDoS).
@@ -373,7 +408,9 @@ This short form falls back to no config on any error. For a fail-closed version 
 - **No symlinks.** A symlinked `.riskannotate.json` is rejected, even one pointing at a valid file, so the config cannot be redirected to a file elsewhere on the machine. On Linux and macOS the open also uses `O_NOFOLLOW`. Directories and other non-regular files are rejected too.
 - **Data only.** The file is parsed with `JSON.parse`: no code is evaluated, no shell runs, no environment variables are expanded, nothing is fetched over the network and no other files are included. Unknown keys, including `__proto__` and `constructor`, are rejected, and the parsed object is never merged into anything.
 - **Safe error messages.** Control characters and Unicode bidirectional overrides from the file are escaped in error messages and rejected inside patterns, so a malicious config cannot spoof terminal output or disguise a pattern in a report.
-- **A pull request can change it.** The config comes from the working tree under review, so a branch can add, remove or loosen patterns in the same change. Such an edit is always flagged HIGH as a [review-policy file](#review-policy-files) change, but the loosened patterns still apply to that run. Use `CODEOWNERS` and/or the base-branch step above if that matters for your repository.
+- **A pull request can change it.** Without `--config-ref`, the config comes from the working tree under review, so a branch can add, remove or loosen patterns in the same change. Such an edit is always flagged HIGH as a [review-policy file](#review-policy-files) change, but the loosened patterns still apply to that run. Use [`--config-ref`](#trusted-configuration---config-ref) with a trusted base SHA, `CODEOWNERS`, or the base-branch step above if that matters for your repository.
+- **`--config-ref` reads git objects only.** It runs `git rev-parse`, `git ls-tree` and `git cat-file` with argument arrays (never a shell). None of them runs hooks, filters or textconv drivers, and `GIT_NO_LAZY_FETCH` is set so a partial clone never fetches a missing object over the network. The ref is checked before it reaches git (no leading `-`, whitespace or control characters, at most 256 characters), and the blob read is capped at 32 KiB + 1 byte.
+- **`--config-ref` trusts what you tell it to.** It cannot tell a trusted commit from one the pull request created. Choosing the commit is the CI configuration's job; see [Trusted configuration](#trusted-configuration---config-ref).
 - **Case-insensitive filesystems** (the default on Windows and macOS) may also open a file named, for example, `.RiskAnnotate.json`. Patterns themselves are always case-sensitive, like git paths.
 
 ## Coverage
@@ -393,11 +430,11 @@ Or pass `--coverage <path>`. An explicit path that is missing or unreadable is a
 
 ## Exit codes
 
-| Code | Meaning                                                                                                                        |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `0`  | Success (with or without annotations)                                                                                          |
-| `1`  | Error: bad flag, unknown revision, not a git repository, missing or unreadable `--coverage` file, invalid `.riskannotate.json` |
-| `2`  | `--fail-on` threshold reached. The report is still printed                                                                     |
+| Code | Meaning                                                                                                                                                 |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Success (with or without annotations)                                                                                                                   |
+| `1`  | Error: bad flag, unknown revision, not a git repository, missing or unreadable `--coverage` file, invalid `.riskannotate.json`, unusable `--config-ref` |
+| `2`  | `--fail-on` threshold reached. The report is still printed                                                                                              |
 
 ## JSON and SARIF
 
@@ -467,6 +504,7 @@ Annotations tell you **where to look**, never what is wrong. An empty result mea
 
 - **Shipped in 0.3.0 — `.riskannotate.json` version 1.** A deliberately narrow first slice: persisted `sensitivePaths` only, additive and strictly validated.
 - **Shipped in 0.4.0 — review-policy files.** Changes to `.riskannotate.json` and `CODEOWNERS` are flagged HIGH, plus a [Magento 2 PR gate example](examples/magento2-pr-gate/).
+- **Shipped in 0.5.0: `--config-ref`.** Read `.riskannotate.json` from a trusted commit instead of the working tree, failing closed. A `config-ref` input for the GitHub Action is a possible follow-up.
 - **Broader configuration (future, not committed to).** Candidates for a later config version: per-rule level overrides, ignore globs, history-window sizes, a coverage path, and a YAML form. Anything that could hide or downgrade a signal needs careful design (for example, staying visible in the report), so none of it is in version 1.
 - **Opt-in LLM pass.** The rule engine has a marked `// EXTENSION POINT: llm-pass` where an optional model pass could add signals with its own evidence source. It will never remove or reorder heuristic signals, and it will stay off by default so the local, deterministic core is unchanged.
 - More manifest ecosystems for rules D and H (Pipfile, Gemfile, Gradle, Maven).

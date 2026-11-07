@@ -6,6 +6,33 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-07
+
+### Added
+
+- `--config-ref <commit-ish>` reads `.riskannotate.json` from the root tree of a trusted
+  commit instead of the working tree, so a pull request cannot loosen the configuration it
+  is judged by. The working-tree file is not opened, merged or used as a fallback; patterns
+  go through the same strict parser, and `--sensitive-path` flags are still added on top.
+  `--base` (the diff) and `--config-ref` (the config) are independent. Without the flag,
+  behavior is unchanged. Report formats, ordering, built-in Rule E protections and exit
+  codes are unchanged.
+- `examples/config-ref-demo/`: a synthetic before/after demo in which a PR removes
+  `src/payments/**` from its own config and edits a payment file; with `--config-ref` the
+  payment change is flagged HIGH. Checked byte for byte in the test suite. Not part of the
+  npm package.
+
+### Security
+
+- `--config-ref` fails closed (exit 1, no report) on unknown or unfetched refs, refs naming
+  a tree or blob, refs starting with `-` or containing whitespace or control characters,
+  refs over 256 characters, a missing root config, a symlink, directory or submodule in its
+  place, a blob over 32 KiB (checked from the object header before reading), a missing
+  object, and invalid content. It runs only `git rev-parse`, `ls-tree` and `cat-file` with
+  argument arrays (no shell, hooks, filters or textconv) and sets `GIT_NO_LAZY_FETCH` so a
+  partial clone never fetches over the network. The flag does not establish trust: CI must
+  pass a base SHA the pull request cannot control.
+
 ## [0.4.0] - 2026-11-07
 
 ### Added
@@ -92,7 +119,8 @@ All notable changes to this project are documented here. The format follows
 - Release workflow: Bun single binaries for linux-x64, darwin-arm64, darwin-x64 and
   windows-x64 with `SHA256SUMS`, and npm publishing with provenance.
 
-[Unreleased]: https://github.com/jigar48/agent-risk-annotator/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/jigar48/agent-risk-annotator/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/jigar48/agent-risk-annotator/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/jigar48/agent-risk-annotator/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jigar48/agent-risk-annotator/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jigar48/agent-risk-annotator/compare/v0.1.0...v0.2.0

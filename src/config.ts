@@ -1,5 +1,6 @@
 import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
 import { join } from 'node:path';
+import { blobSize, GitError, readBlob, resolveCommit, rootTreeEntry } from './git.js';
 import { MAX_SENSITIVE_PATHS, PatternError, normalizePattern } from './sensitive-paths.js';
 
 /**
@@ -44,6 +45,85 @@ export function loadConfig(root: string): RepoConfig | null {
   if (!stat.isFile()) throw new ConfigError(`${CONFIG_FILE}: is not a regular file`);
   if (stat.size > MAX_CONFIG_BYTES) throw tooLarge(stat.size);
   return parseConfig(readBounded(path));
+}
+
+/** Longest `--config-ref` accepted; real refs and expressions are far shorter. */
+export const MAX_CONFIG_REF_LENGTH = 256;
+
+/**
+ * Checks the shape of a `--config-ref` value before it reaches git. A leading `-` would be
+ * read as an option, and control characters could spoof messages that echo the ref.
+ */
+export function validateConfigRef(ref: string): string | null {
+  if (ref === '') return '--config-ref must not be empty';
+  if (ref.length > MAX_CONFIG_REF_LENGTH) {
+    return `--config-ref must be at most ${MAX_CONFIG_REF_LENGTH} characters`;
+  }
+  if (ref.startsWith('-')) return `--config-ref ${quote(ref)}: must not start with "-"`;
+  if ([...ref].some((ch) => isUnsafeChar(ch.charCodeAt(0)) || /\s/.test(ch))) {
+    return `--config-ref ${quote(ref)}: whitespace, control and bidirectional characters are not allowed`;
+  }
+  return null;
+}
+
+/**
+ * Reads `.riskannotate.json` from the root tree of the commit `ref` resolves to, ignoring
+ * the working tree entirely. Unlike loadConfig, a missing file is an error: the caller asked
+ * for a specific trusted configuration, so there is nothing safe to fall back to.
+ *
+ * Only plumbing commands run (rev-parse, cat-file, ls-tree); none of them runs hooks,
+ * filters or textconv, and missing objects are never fetched from a remote.
+ */
+export function loadConfigFromRef(root: string, ref: string): RepoConfig {
+  const invalid = validateConfigRef(ref);
+  if (invalid !== null) throw new ConfigError(invalid);
+  const at = `--config-ref ${quote(ref)}`;
+
+  const resolved = resolveCommit(ref, root);
+  if (resolved.commit === null) {
+    if (resolved.type === null) {
+      throw new ConfigError(
+        `${at}: unknown revision; fetch the trusted commit first (for example actions/checkout with fetch-depth: 0)`,
+      );
+    }
+    throw new ConfigError(`${at}: names a ${resolved.type}, not a commit`);
+  }
+  const commit = resolved.commit;
+  const where = `${at} (${commit.slice(0, 12)})`;
+
+  try {
+    const entry = rootTreeEntry(commit, CONFIG_FILE, root);
+    if (entry === null) {
+      throw new ConfigError(
+        `${CONFIG_FILE}: not found at the repository root in ${where}; --config-ref requires the file to exist there`,
+      );
+    }
+    if (entry.mode === '120000') {
+      throw new ConfigError(
+        `${CONFIG_FILE}: is a symbolic link in ${where}; the configuration must be a regular file at the repository root`,
+      );
+    }
+    if (entry.type !== 'blob' || (entry.mode !== '100644' && entry.mode !== '100755')) {
+      throw new ConfigError(
+        `${CONFIG_FILE}: is not a regular file in ${where} (${entry.type}, mode ${entry.mode})`,
+      );
+    }
+    const size = blobSize(entry.oid, root);
+    if (size > MAX_CONFIG_BYTES) throw tooLarge(size);
+    const bytes = readBlob(entry.oid, MAX_CONFIG_BYTES, root);
+    if (bytes.length > MAX_CONFIG_BYTES) throw tooLarge(bytes.length);
+    return parseConfig(bytes);
+  } catch (err) {
+    if (err instanceof ConfigError) {
+      throw new ConfigError(
+        err.message.includes(where) ? err.message : `${err.message} (in ${where})`,
+      );
+    }
+    if (err instanceof GitError) {
+      throw new ConfigError(`${CONFIG_FILE}: cannot read from ${where}: ${sanitize(err.message)}`);
+    }
+    throw err;
+  }
 }
 
 /**
