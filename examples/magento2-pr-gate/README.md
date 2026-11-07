@@ -154,16 +154,17 @@ against throwaway repositories.
 
 ## Version compatibility
 
-| Feature used by this kit                                          | risk-annotate 0.3.0 (published) | `main` (unreleased) |
-| ----------------------------------------------------------------- | ------------------------------- | ------------------- |
-| `.riskannotate.json` with `sensitivePaths`                        | Yes                             | Yes                 |
-| Action inputs `version`, `fail-on`; exit code 2 on threshold      | Yes                             | Yes                 |
-| Flags a change to `.riskannotate.json` / `CODEOWNERS` itself HIGH | **No**                          | Yes                 |
+| Feature used by this kit                                          | risk-annotate 0.3.0 | 0.4.0 and later |
+| ----------------------------------------------------------------- | ------------------- | --------------- |
+| `.riskannotate.json` with `sensitivePaths`                        | Yes                 | Yes             |
+| Action inputs `version`, `fail-on`; exit code 2 on threshold      | Yes                 | Yes             |
+| Flags a change to `.riskannotate.json` / `CODEOWNERS` itself HIGH | **No**              | Yes             |
 
-The demo output above is identical with 0.3.0 and with the current `main` build. The last row
-is unreleased: with 0.3.0, a PR that edits `.riskannotate.json` is not itself flagged. The
-base-config step still prevents that PR from changing its own checks; once a release includes
-review-policy detection, such a PR will also get a HIGH annotation on the config file.
+The workflow stays pinned to 0.3.0, the version the kit was first verified against; the demo
+output above is identical with 0.3.0 and 0.4.0. With 0.3.0, a PR that edits
+`.riskannotate.json` is not itself flagged, though the base-config step still stops it from
+changing its own checks. To also get a HIGH annotation on the edited config or `CODEOWNERS`,
+pin the action to the `v0.4.0` tag's commit SHA and set `version: 0.4.0`.
 
 ## Limitations
 
