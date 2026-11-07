@@ -1,5 +1,5 @@
 import { parseArgs } from 'node:util';
-import { CONFIG_FILE, ConfigError } from './config.js';
+import { CONFIG_FILE, ConfigError, validateConfigRef } from './config.js';
 import { buildContext } from './context.js';
 import { CoverageError } from './coverage/index.js';
 import { FORMATS, render, type Format } from './format/index.js';
@@ -36,6 +36,11 @@ Options:
                       Extra repo-relative path to flag HIGH (Rule E), on top of the
                       built-ins. Repeatable. Supports *, ** and ?. Quote it in your shell.
                       Combined with "sensitivePaths" from ${CONFIG_FILE}.
+  --config-ref <commit-ish>
+                      Read ${CONFIG_FILE} from the root of this commit instead of
+                      the working tree. The file must exist there. Independent of
+                      --base: in CI pass a base SHA you trust; the flag itself does
+                      not make a commit trustworthy.
   --cwd <dir>         Run against the repository containing <dir>. Default: .
   -v, --version       Print the version
   -h, --help          Print this help
@@ -44,11 +49,13 @@ Configuration:
   ${CONFIG_FILE} at the repository root is read when present:
     { "version": 1, "sensitivePaths": ["src/payments/**"] }
   It can only add sensitive paths. An invalid file is an error (exit 1).
+  With --config-ref, only the committed copy at that commit is used; the working
+  tree file is ignored, and a missing or invalid committed file is an error.
 
 Exit codes:
   0  success
   1  error (bad flag, unknown revision, unreadable coverage file, not a git repo,
-     invalid ${CONFIG_FILE})
+     invalid ${CONFIG_FILE}, unusable --config-ref)
   2  --fail-on threshold reached
 `;
 
@@ -67,6 +74,7 @@ export function main(argv: readonly string[], io: Io): number {
         'fail-on': { type: 'string' },
         coverage: { type: 'string' },
         'sensitive-path': { type: 'string', multiple: true },
+        'config-ref': { type: 'string' },
         cwd: { type: 'string' },
         version: { type: 'boolean', short: 'v' },
         help: { type: 'boolean', short: 'h' },
@@ -114,6 +122,12 @@ export function main(argv: readonly string[], io: Io): number {
     throw err;
   }
 
+  const configRef = values['config-ref'];
+  if (configRef !== undefined) {
+    const invalid = validateConfigRef(configRef);
+    if (invalid !== null) return usageError(io, invalid);
+  }
+
   try {
     const ctx = buildContext({
       cwd: values.cwd ?? io.cwd,
@@ -121,6 +135,7 @@ export function main(argv: readonly string[], io: Io): number {
       head: values.head,
       coveragePath: values.coverage,
       sensitivePaths,
+      configRef,
     });
     for (const w of ctx.warnings) io.stderr(`risk-annotate: warning: ${w}\n`);
 

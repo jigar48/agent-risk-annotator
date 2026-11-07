@@ -1,4 +1,4 @@
-import { loadConfig } from './config.js';
+import { loadConfig, loadConfigFromRef } from './config.js';
 import { loadCoverage, type CoverageReport } from './coverage/index.js';
 import { parseDiff, type FileChange } from './diff/parse.js';
 import {
@@ -31,6 +31,11 @@ export interface ContextOptions {
    * normalizeSensitivePaths. Combined with `.riskannotate.json` at the repository root.
    */
   sensitivePaths?: readonly string[];
+  /**
+   * `--config-ref`: read `.riskannotate.json` from this commit instead of the working tree.
+   * Independent of `base` / `head`, which only choose the diff.
+   */
+  configRef?: string;
 }
 
 /** Everything rules need, gathered once so each rule is a pure function of it. */
@@ -72,7 +77,10 @@ export function buildContext(opts: ContextOptions): RepoContext {
   assertRepo(opts.cwd);
   const root = getToplevel(opts.cwd);
   // Read before any other work so a broken config fails fast and closed.
-  const config = loadConfig(root);
+  // With --config-ref the working-tree file is never opened, so the change under review
+  // cannot replace, loosen or break the trusted configuration.
+  const config =
+    opts.configRef === undefined ? loadConfig(root) : loadConfigFromRef(root, opts.configRef);
   const sensitivePaths = combineSensitivePaths(
     opts.sensitivePaths ?? [],
     config?.sensitivePaths ?? [],
