@@ -259,6 +259,8 @@ The annotations point at where to look; they don't say the coupon logic is wrong
 | Magento / e-commerce | `'app/code/**/Payment/**'` `'**/Checkout/**'` `'**/webhooks/**'` `'app/etc/env.php'` |
 | Data / ML pipelines  | `'pipelines/**/export*.py'` `'**/pii/**'` `'dags/**/billing*.py'`                    |
 
+For Magento 2, [`examples/magento2-pr-gate/`](examples/magento2-pr-gate/) is a copy-ready starter kit: a documented `.riskannotate.json` for checkout, totals, payment, shipping, webhooks and `etc/` configuration, a pull-request workflow that fails on HIGH using the base branch's config, and a synthetic fixture with a reproducible demo.
+
 ### Syntax
 
 | Pattern               | Matches                                                                                                                                                                                                               |
@@ -362,6 +364,8 @@ The [GitHub Action](#github-action) needs no new inputs; it reads `.riskannotate
     fail-on: high
 ```
 
+This short form falls back to no config on any error. For a fail-closed version (it stops on unexpected git errors and rejects a symlinked base config), see the workflow in [`examples/magento2-pr-gate/`](examples/magento2-pr-gate/#how-the-workflow-works); its base-config step is not Magento-specific.
+
 #### Security notes for the config file
 
 - **Bounded input.** At most 32 KiB, 100 unique patterns and 256 characters per pattern. Patterns go through the same regex-free matcher as flags, so a hostile config cannot cause catastrophic backtracking (ReDoS).
@@ -462,6 +466,7 @@ Annotations tell you **where to look**, never what is wrong. An empty result mea
 ## Roadmap
 
 - **Shipped in 0.3.0 — `.riskannotate.json` version 1.** A deliberately narrow first slice: persisted `sensitivePaths` only, additive and strictly validated.
+- **Shipped in 0.4.0 — review-policy files.** Changes to `.riskannotate.json` and `CODEOWNERS` are flagged HIGH, plus a [Magento 2 PR gate example](examples/magento2-pr-gate/).
 - **Broader configuration (future, not committed to).** Candidates for a later config version: per-rule level overrides, ignore globs, history-window sizes, a coverage path, and a YAML form. Anything that could hide or downgrade a signal needs careful design (for example, staying visible in the report), so none of it is in version 1.
 - **Opt-in LLM pass.** The rule engine has a marked `// EXTENSION POINT: llm-pass` where an optional model pass could add signals with its own evidence source. It will never remove or reorder heuristic signals, and it will stay off by default so the local, deterministic core is unchanged.
 - More manifest ecosystems for rules D and H (Pipfile, Gemfile, Gradle, Maven).

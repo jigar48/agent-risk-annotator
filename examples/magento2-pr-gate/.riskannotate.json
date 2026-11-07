@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "sensitivePaths": [
+    "app/code/*/*Checkout*/**",
+    "app/code/**/Total/**",
+    "app/code/**/etc/sales.xml",
+    "app/code/*/*Payment*/**",
+    "app/code/**/Gateway/**",
+    "app/code/**/etc/payment.xml",
+    "app/code/*/*Shipping*/**",
+    "app/code/**/Carrier/**",
+    "app/code/*/*Webhook*/**",
+    "app/code/**/Webhook/**",
+    "app/code/**/Webhooks/**",
+    "app/code/**/etc/**/di.xml",
+    "app/code/**/etc/**/events.xml",
+    "app/code/**/etc/**/routes.xml",
+    "app/code/**/etc/acl.xml",
+    "app/code/**/etc/config.xml",
+    "app/code/**/etc/crontab.xml",
+    "app/code/**/etc/webapi.xml",
+    "app/etc/config.php",
+    "app/etc/di.xml",
+    "app/etc/env.php"
+  ]
+}

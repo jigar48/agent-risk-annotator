@@ -1,0 +1,65 @@
+# Copy to .github/workflows/risk-annotate.yml in your Magento 2 repository.
+#
+# Annotates every pull request with risk-annotate and fails the check when any HIGH
+# annotation is found. HIGH means "review this first", not "this is a vulnerability".
+name: Risk annotations
+
+on:
+  # pull_request (never pull_request_target): the job runs with a read-only token and no
+  # repository secrets, so code from a fork cannot reach anything sensitive.
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: risk-annotate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  risk-annotate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history: --base needs the merge base, and rules A and C read past commits.
+          fetch-depth: 0
+          # The token is not needed after checkout; don't leave it in .git/config.
+          persist-credentials: false
+
+      # risk-annotate reads .riskannotate.json from the working tree, which the pull request
+      # controls. Replace it with the base branch's copy so a PR cannot loosen its own checks.
+      # Nothing from the PR is executed: this only runs git and file operations.
+      - name: Use the base branch's risk configuration
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # base-config:start
+          set -euo pipefail
+          if [ -z "${BASE_SHA:-}" ]; then
+            echo "::error title=risk-annotate::No base commit; this step only works on pull_request events."
+            exit 1
+          fi
+          # Any git failure (unknown commit, shallow clone, corrupt repo) stops the job here.
+          entry="$(git ls-tree "$BASE_SHA" -- .riskannotate.json)"
+          rm -f -- .riskannotate.json
+          if [ -z "$entry" ]; then
+            echo "::notice title=risk-annotate::The base branch has no .riskannotate.json; using built-in rules only."
+          else
+            mode="${entry%% *}"
+            if [ "$mode" != "100644" ] && [ "$mode" != "100755" ]; then
+              echo "::error title=risk-annotate::.riskannotate.json on the base branch is not a regular file (mode $mode)."
+              exit 1
+            fi
+            git cat-file blob "$BASE_SHA:.riskannotate.json" > .riskannotate.json
+            echo "Using .riskannotate.json from base commit $BASE_SHA."
+          fi
+          # base-config:end
+
+      # Pinned to the commit of the published v0.3.0 tag, and to the matching npm version.
+      # When you upgrade, update both together.
+      - uses: jigar48/agent-risk-annotator@e284a043a1cd7031ebaa6fd4a130a25857294b49 # v0.3.0
+        with:
+          version: 0.3.0
+          fail-on: high
