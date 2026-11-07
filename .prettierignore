@@ -6,3 +6,6 @@ package-lock.json
 test/fixtures/
 # Golden files are the tool's exact output; reformatting them would break the snapshots.
 test/golden/
+# Example fixtures and expected reports are exact inputs/outputs of the tool.
+examples/*/fixture/
+examples/*/expected/

@@ -16,6 +16,13 @@ All notable changes to this project are documented here. The format follows
   `--sensitive-path` / `sensitivePaths`, so a change that empties its own config is still
   flagged. File contents are never read. This is a review signal, not enforcement of
   `CODEOWNERS` or branch protection.
+- `examples/magento2-pr-gate/`: a Magento 2 PR review starter kit built only on existing
+  Rule E sensitive paths. It has a documented `.riskannotate.json` (checkout and totals,
+  payment, shipping, webhooks, module `etc/` and `app/etc/` configuration), a
+  `pull_request` workflow with read-only permissions, full history and `fail-on: high`,
+  pinned to the published v0.3.0 action and npm version, which uses the base branch's
+  config and fails closed on git errors, plus a synthetic fixture whose report is checked in
+  the test suite. Not part of the npm package.
 
 ### Changed
 

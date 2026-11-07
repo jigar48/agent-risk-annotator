@@ -259,6 +259,8 @@ The annotations point at where to look; they don't say the coupon logic is wrong
 | Magento / e-commerce | `'app/code/**/Payment/**'` `'**/Checkout/**'` `'**/webhooks/**'` `'app/etc/env.php'` |
 | Data / ML pipelines  | `'pipelines/**/export*.py'` `'**/pii/**'` `'dags/**/billing*.py'`                    |
 
+For Magento 2, [`examples/magento2-pr-gate/`](examples/magento2-pr-gate/) is a copy-ready starter kit: a documented `.riskannotate.json` for checkout, totals, payment, shipping, webhooks and `etc/` configuration, a pull-request workflow that fails on HIGH using the base branch's config, and a synthetic fixture with a reproducible demo.
+
 ### Syntax
 
 | Pattern               | Matches                                                                                                                                                                                                               |
@@ -361,6 +363,8 @@ The [GitHub Action](#github-action) needs no new inputs; it reads `.riskannotate
   with:
     fail-on: high
 ```
+
+This short form falls back to no config on any error. For a fail-closed version (it stops on unexpected git errors and rejects a symlinked base config), see the workflow in [`examples/magento2-pr-gate/`](examples/magento2-pr-gate/#how-the-workflow-works); its base-config step is not Magento-specific.
 
 #### Security notes for the config file
 
